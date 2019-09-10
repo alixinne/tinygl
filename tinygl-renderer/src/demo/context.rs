@@ -2,17 +2,23 @@
 
 use glow::HasContext;
 
-use super::{Demo, CompileError};
+use super::{CompileError, Demo, StepProgram};
 
 pub struct Context {
     pub gl: glow::Context,
+    pub render_size: cgmath::Vector2<u32>,
+
     quad_vao: <glow::Context as HasContext>::VertexArray,
     vertex_shader: <glow::Context as HasContext>::Shader,
     shader_version: &'static str,
 }
 
 impl Context {
-    pub fn new(shader_version: &'static str, gl: glow::Context) -> Self {
+    pub fn new(
+        gl: glow::Context,
+        render_size: cgmath::Vector2<u32>,
+        shader_version: &'static str,
+    ) -> Self {
         unsafe {
             // Create VAO object
             let quad_vao = gl
@@ -40,6 +46,7 @@ impl Context {
             info!("created tinygl context!");
             Self {
                 gl,
+                render_size,
                 quad_vao,
                 vertex_shader,
                 shader_version,
@@ -60,21 +67,20 @@ impl Context {
         }
     }
 
-    pub fn compile_fragment(
-        &self,
-        fragment: &str,
-    ) -> Result<<glow::Context as HasContext>::Program, CompileError> {
+    pub fn compile_fragment(&self, fragment: &str) -> Result<StepProgram, CompileError> {
         let gl = &self.gl;
 
         unsafe {
             let shader = gl
                 .create_shader(glow::FRAGMENT_SHADER)
                 .expect("failed to create fragment shader");
-            gl.shader_source(shader, &format!("{}\n{}", self.shader_version, fragment));
+            let shader_source = format!("{}\n{}", self.shader_version, fragment);
+            gl.shader_source(shader, &shader_source);
             gl.compile_shader(shader);
             if !gl.get_shader_compile_status(shader) {
+                let log = gl.get_shader_info_log(shader);
                 gl.delete_shader(shader);
-                return Err(CompileError::CompilationError { log: gl.get_shader_info_log(shader) });
+                return Err(CompileError::CompilationError { log });
             }
 
             // Create program
@@ -93,11 +99,13 @@ impl Context {
             gl.delete_shader(shader);
 
             if !gl.get_program_link_status(program) {
+                let log = gl.get_program_info_log(program);
                 gl.delete_program(program);
-                return Err(CompileError::LinkError { log: gl.get_program_info_log(program) });
+                return Err(CompileError::LinkError { log });
             }
 
-            Ok(program)
+            // The StepProgram will parse declarations
+            Ok(StepProgram::new(&self.gl, &shader_source, program)?)
         }
     }
 }
@@ -106,6 +114,7 @@ impl Drop for Context {
     fn drop(&mut self) {
         unsafe {
             self.gl.delete_vertex_array(self.quad_vao);
+            self.gl.delete_shader(self.vertex_shader);
         }
     }
 }

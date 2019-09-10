@@ -1,18 +1,25 @@
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
-use tinygl_renderer::demo::{self, Compilable};
+use cgmath::vec2;
+
+use tinygl_renderer::demo::{self, *};
 
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::ControlFlow;
 
 fn main() {
-    let (gl, event_loop, windowed_context, shader_version) = {
+    let (gl, event_loop, windowed_context, shader_version, render_size) = {
         env_logger::init();
 
+        let render_size = vec2(1024, 768);
         let el = glutin::event_loop::EventLoop::new();
         let wb = glutin::window::WindowBuilder::new()
             .with_title("tinygl")
-            .with_inner_size(glutin::dpi::LogicalSize::new(1024.0, 768.0));
+            .with_inner_size(glutin::dpi::LogicalSize::new(
+                render_size.x.into(),
+                render_size.y.into(),
+            ));
         let windowed_context = glutin::ContextBuilder::new()
             .with_vsync(true)
             .build_windowed(wb, &el)
@@ -21,15 +28,37 @@ fn main() {
         let context = glow::Context::from_loader_function(|s| {
             windowed_context.get_proc_address(s) as *const _
         });
-        (context, el, windowed_context, "#version 410")
+        (context, el, windowed_context, "#version 410", render_size)
     };
 
     // Create default context
-    let context = demo::Context::new(shader_version, gl);
+    let mut context = demo::Context::new(gl, render_size, shader_version);
 
     // Compile demo
     let mut demo = demo::Demo::default();
+
+    // First pass, renders a gradient
+    demo.passes.push(PassBuilder::sample("gradient").build());
+
+    // Second pass, take gradient, change it and return it
+    demo.passes.push(
+        PassBuilder::new("image")
+            .with_fragment(
+                r#"precision mediump float;
+    in vec2 texCoords;
+    out vec4 color;
+
+    uniform sampler2D inPassGradient;
+    void main() {
+        color = texture(inPassGradient, texCoords) * vec4(1.0, 1.0, 0.0, 1.0);
+    }"#,
+            )
+            .build(),
+    );
+
     demo.compile(&context).expect("failed to compile demo");
+    demo.prepare_render(&context)
+        .expect("failed to prepare rendering");
 
     // Bind VAO for screen quad
     context.bind_vao();
@@ -42,6 +71,7 @@ fn main() {
         match event {
             Event::LoopDestroyed => {
                 info!("Event::LoopDestroyed!");
+                demo.drop(&context.gl);
                 return;
             }
             Event::EventsCleared => {
@@ -52,7 +82,11 @@ fn main() {
                 WindowEvent::Resized(logical_size) => {
                     info!("WindowEvent::Resized: {:?}", logical_size);
                     let dpi_factor = windowed_context.window().hidpi_factor();
-                    windowed_context.resize(logical_size.to_physical(dpi_factor));
+                    let size = logical_size.to_physical(dpi_factor);
+                    context.render_size = cgmath::vec2(size.width as u32, size.height as u32);
+                    demo.prepare_render(&context)
+                        .expect("failed to prepare rendering");
+                    windowed_context.resize(size);
                 }
                 WindowEvent::RedrawRequested => {
                     //info!("WindowEvent::RedrawRequested");

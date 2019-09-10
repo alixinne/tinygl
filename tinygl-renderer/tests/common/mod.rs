@@ -5,7 +5,7 @@ mod web {
 
     wasm_bindgen_test_configure!(run_in_browser);
 
-    pub fn with_window<F: FnOnce(glow::Context, &'static str)>(cb: F) {
+    pub fn with_window<F: FnOnce(glow::Context, cgmath::Vector2<u32>, &'static str)>(cb: F) {
         let document = web_sys::window()
             .expect("failed to get window")
             .document()
@@ -24,8 +24,10 @@ mod web {
             .append_child(&canvas)
             .expect("failed to append canvas child");
 
-        let (_window, gl, _events_loop, _render_loop, shader_version) = {
+        let (gl, render_size, shader_version) = {
             let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().unwrap();
+            let render_size = cgmath::vec2(canvas.width().into(), canvas.height().into());
+
             let webgl2_context = canvas
                 .get_context("webgl2")
                 .expect("failed to get_context(webgl2)")
@@ -33,27 +35,27 @@ mod web {
                 .dyn_into::<web_sys::WebGl2RenderingContext>()
                 .unwrap();
             (
-                (),
                 glow::Context::from_webgl2_context(webgl2_context),
-                (),
-                glow::RenderLoop::from_request_animation_frame(),
+                render_size,
                 "#version 300 es",
             )
         };
 
-        cb(gl, shader_version);
+        cb(gl, render_size, shader_version);
     }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 mod desktop {
-    pub fn with_window<F: FnOnce(glow::Context, &'static str)>(cb: F) {
+    pub fn with_window<F: FnOnce(glow::Context, cgmath::Vector2<u32>, &'static str)>(cb: F) {
         unsafe {
-            let (gl, _event_loop, _headless_context, shader_version) = {
+            let (gl, render_size, _event_loop, _headless_context, shader_version) = {
                 env_logger::init();
 
                 let el = glutin::event_loop::EventLoop::new();
-                let size = glutin::dpi::PhysicalSize::new(1024.0, 768.0);
+                let render_size = cgmath::vec2(1024, 768);
+                let size =
+                    glutin::dpi::PhysicalSize::new(render_size.x as f64, render_size.y as f64);
                 let headless_context = glutin::ContextBuilder::new()
                     .build_headless(&el, size)
                     .unwrap();
@@ -61,10 +63,10 @@ mod desktop {
                 let context = glow::Context::from_loader_function(|s| {
                     headless_context.get_proc_address(s) as *const _
                 });
-                (context, el, headless_context, "#version 410")
+                (context, render_size, el, headless_context, "#version 410")
             };
 
-            cb(gl, shader_version);
+            cb(gl, render_size, shader_version);
         }
     }
 }
