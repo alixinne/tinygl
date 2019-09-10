@@ -5,16 +5,9 @@ use glsl::{
     parser::Parse,
     visitor::{Host, Visit, Visitor},
 };
-use lazy_static::lazy_static;
-use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 
 use super::{CompileError, GlDroppable};
-
-lazy_static! {
-    static ref NAME_BUFFER_REGEX: Regex =
-        Regex::new(r"^inPass(\d+|[a-zA-Z_][a-zA-Z_0-9]*)$").unwrap();
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum SamplerSource {
@@ -85,8 +78,9 @@ impl StepProgram {
                 .into_iter()
                 .map(|name| {
                     let location = unsafe { gl.get_uniform_location(program, &name) };
-                    let source = if let Some(captures) = NAME_BUFFER_REGEX.captures(&name) {
-                        let name = captures.get(1).unwrap().as_str();
+                    let name_base = "inPass";
+                    let source = if name.starts_with(name_base) {
+                        let name = &name[name_base.len()..];
                         if let Ok(id) = name.parse::<u32>() {
                             SamplerSource::BufferId(id as usize)
                         } else {

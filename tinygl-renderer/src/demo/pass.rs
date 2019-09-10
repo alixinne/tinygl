@@ -240,7 +240,6 @@ impl Pass {
 
 impl Compilable for Pass {
     fn compile(&mut self, context: &Context) -> Result<(), CompileError> {
-        trace!("compiling pass {:?}", self);
         self.program = Some(context.compile_fragment(&self.fragment)?);
 
         Ok(())
