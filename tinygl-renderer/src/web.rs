@@ -1,20 +1,24 @@
-use std::sync::{Arc, Mutex};
-
-use cgmath::prelude::*;
 use glow::*;
-use lazy_static::lazy_static;
 use wasm_bindgen::{prelude::*, JsCast};
 
 use crate::demo::{self, *};
 
-struct State {
+#[wasm_bindgen]
+pub struct State {
     context: demo::Context,
     demo: demo::Demo,
 }
 
+#[wasm_bindgen]
 impl State {
-    pub fn load_demo(&mut self, demo: Demo) {
-        self.demo = demo;
+    pub fn get_demo(&mut self) -> JsValue {
+        JsValue::from_serde(&self.demo).unwrap()
+    }
+
+    pub fn load_demo(&mut self, demo: JsValue) -> Result<(), JsValue> {
+        self.demo = demo.into_serde().map_err(|error| error.to_string())?;
+
+        Ok(())
     }
 
     pub fn compile_demo(&mut self) {
@@ -25,73 +29,35 @@ impl State {
             .prepare_render(&self.context)
             .expect("failed to prepare rendering");
     }
-}
 
-// ?
-unsafe impl Send for State {}
-
-lazy_static! {
-    static ref STATE: Arc<Mutex<Option<State>>> = Arc::new(Mutex::new(None));
-}
-
-#[wasm_bindgen]
-pub fn load_demo(val: &JsValue) {
-    let demo: Demo = val.into_serde().expect("invalid demo data");
-
-    let mut state_lock = STATE.lock().unwrap();
-    let state = state_lock.as_mut().unwrap();
-    state.load_demo(demo);
-    state.compile_demo();
-}
-
-// This is like the `main` function, except for JavaScript.
-#[wasm_bindgen(start)]
-pub fn wasm_main() -> Result<(), JsValue> {
-    #[cfg(debug_assertions)]
-    {
-        // This provides better error messages in debug mode.
-        console_error_panic_hook::set_once();
-
-        // Set logger
-        console_log::init_with_level(log::Level::Debug).unwrap()
+    pub fn render(&self) {
+        self.demo.render(&self.context);
     }
+}
 
+pub fn run(canvas: web_sys::HtmlCanvasElement) -> Result<State, JsValue> {
     unsafe {
         // Create a context from a WebGL2 context on wasm32 targets
-        let (gl, render_loop, shader_version, render_size) = {
-            let canvas = web_sys::window()
-                .unwrap()
-                .document()
-                .unwrap()
-                .get_element_by_id("canvas")
-                .unwrap()
-                .dyn_into::<web_sys::HtmlCanvasElement>()?;
+        let (gl, shader_version, render_size) = {
             let webgl2_context = canvas
-                .get_context("webgl2")
+                .get_context("webgl2")?
                 .unwrap()
-                .unwrap()
-                .dyn_into::<web_sys::WebGl2RenderingContext>()
-                .unwrap();
+                .dyn_into::<web_sys::WebGl2RenderingContext>()?;
 
             let render_size = cgmath::vec2(canvas.width().into(), canvas.height().into());
 
             (
                 glow::Context::from_webgl2_context(webgl2_context),
-                glow::RenderLoop::from_request_animation_frame(),
                 "#version 300 es",
                 render_size,
             )
         };
 
-        let mut state_mut = STATE.lock().unwrap();
-
         // Create state with GL context and in-view demo object
-        *state_mut = Some(State {
+        let mut state = State {
             context: demo::Context::new(gl, render_size, shader_version),
             demo: demo::Demo::default(),
-        });
-
-        let state = &mut state_mut.as_mut().unwrap();
+        };
 
         let demo = &mut state.demo;
 
@@ -123,20 +89,30 @@ pub fn wasm_main() -> Result<(), JsValue> {
         // Set default clear color
         state.context.gl.clear_color(0.1, 0.2, 0.3, 1.0);
 
-        // Web render loop
-        render_loop.run(|running: &mut bool| {
-            let mut state_mut = STATE.lock().unwrap();
-            let state = &mut state_mut.as_mut().unwrap();
-            let context = &mut state.context;
-            let demo = &mut state.demo;
+        Ok(state)
+    }
+}
 
-            context.render(&demo);
+#[wasm_bindgen]
+pub fn init(canvas: JsValue) -> Result<State, JsValue> {
+    // Cast object into canvas object
+    let canvas = canvas
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .expect("canvas element is required");
 
-            if !*running {
-                // Delete resources
-                demo.drop(&context.gl);
-            }
-        });
+    run(canvas)
+}
+
+// This is like the `main` function, except for JavaScript.
+#[wasm_bindgen(start)]
+pub fn wasm_main() -> Result<(), JsValue> {
+    #[cfg(debug_assertions)]
+    {
+        // This provides better error messages in debug mode.
+        console_error_panic_hook::set_once();
+
+        // Set logger
+        console_log::init_with_level(log::Level::Debug).unwrap()
     }
 
     Ok(())
