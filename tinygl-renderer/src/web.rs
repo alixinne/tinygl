@@ -6,7 +6,7 @@ use crate::demo::{self, *};
 #[wasm_bindgen]
 pub struct State {
     context: demo::Context,
-    demo: demo::Demo,
+    demo: Option<demo::Demo>,
 }
 
 #[wasm_bindgen]
@@ -16,22 +16,31 @@ impl State {
     }
 
     pub fn load_demo(&mut self, demo: JsValue) -> Result<(), JsValue> {
-        self.demo = demo.into_serde().map_err(|error| error.to_string())?;
+        let mut new_demo: Demo = demo.into_serde().map_err(|error| error.to_string())?;
+
+        new_demo
+            .compile(&self.context)
+            .map_err(|error| error.to_string())?;
+
+        new_demo
+            .prepare_render(&self.context)
+            .map_err(|error| error.to_string())?;
+
+        self.demo.replace(new_demo).map(|mut old_demo| {
+            old_demo.drop(&self.context.gl);
+        });
 
         Ok(())
     }
 
-    pub fn compile_demo(&mut self) {
-        self.demo
-            .compile(&self.context)
-            .expect("failed to compile demo");
-        self.demo
-            .prepare_render(&self.context)
-            .expect("failed to prepare rendering");
-    }
-
     pub fn render(&self) {
-        self.demo.render(&self.context);
+        if let Some(demo) = &self.demo {
+            demo.render(&self.context);
+        } else {
+            unsafe {
+                self.context.gl.clear(glow::COLOR_BUFFER_BIT);
+            }
+        }
     }
 }
 
@@ -54,34 +63,10 @@ pub fn run(canvas: web_sys::HtmlCanvasElement) -> Result<State, JsValue> {
         };
 
         // Create state with GL context and in-view demo object
-        let mut state = State {
+        let state = State {
             context: demo::Context::new(gl, render_size, shader_version),
-            demo: demo::Demo::default(),
+            demo: None,
         };
-
-        let demo = &mut state.demo;
-
-        // First pass, renders a gradient
-        demo.passes.push(PassBuilder::sample("gradient").build());
-
-        // Second pass, take gradient, change it and return it
-        demo.passes.push(
-            PassBuilder::new("image")
-                .with_fragment(
-                    r#"precision mediump float;
-        in vec2 texCoords;
-        out vec4 color;
-
-        uniform sampler2D inPassGradient;
-        void main() {
-            color = texture(inPassGradient, texCoords) * vec4(1.0, 1.0, 0.0, 1.0);
-        }"#,
-                )
-                .build(),
-        );
-
-        // Compile demo
-        state.compile_demo();
 
         // Bind VAO so draw_arrays can be called
         state.context.bind_vao();

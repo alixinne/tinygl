@@ -11,7 +11,7 @@ use super::{Compilable, CompileError, Context, Demo, GlDroppable, StepProgram};
 pub struct Pass {
     pub name: String,
     fragment: String,
-    #[serde(skip)]
+    #[serde(skip_deserializing)]
     program: Option<StepProgram>,
     #[serde(skip)]
     render_size: Option<cgmath::Vector2<u32>>,

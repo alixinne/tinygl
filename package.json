@@ -10,8 +10,11 @@
     "test": "cargo test -p tinygl-renderer && wasm-pack test tinygl-renderer"
   },
   "dependencies": {
+    "buefy": "^0.8.3",
     "core-js": "^2.6.5",
+    "lodash-es": "^4.17.15",
     "vue": "^2.6.10",
+    "vue-codemirror": "^4.0.6",
     "vuex": "^3.0.1"
   },
   "devDependencies": {
@@ -41,7 +44,9 @@
       "parser": "babel-eslint"
     }
   },
-  "eslintIgnore": ["pkg"],
+  "eslintIgnore": [
+    "pkg"
+  ],
   "postcss": {
     "plugins": {
       "autoprefixer": {}
