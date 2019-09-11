@@ -68,7 +68,8 @@ impl Demo {
 
 impl Compilable for Demo {
     fn compile(&mut self, context: &Context) -> Result<(), CompileError> {
-        trace!("compiling demo");
+        #[cfg(not(target_arch = "wasm32"))]
+        trace!("compiling demo: {:?}", self);
 
         for pass in &mut self.passes {
             pass.compile(context)?;
