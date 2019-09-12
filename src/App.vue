@@ -47,7 +47,7 @@ export default {
 
 <style lang="scss">
 @import "~bulma/sass/utilities/_all";
-
+@import "@/scss/_darkly";
 @import "~bulma";
 @import "~buefy/src/scss/buefy";
 

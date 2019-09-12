@@ -28,6 +28,7 @@ import TgCanvas from '@/components/TgCanvas.vue'
 import { codemirror } from 'vue-codemirror'
 import 'codemirror/lib/codemirror.css'
 import 'codemirror/mode/clike/clike.js'
+import 'codemirror/theme/ambiance.css'
 
 export default {
   name: 'DemoEditor',
@@ -38,7 +39,7 @@ export default {
     return {
       cmOptions: {
         tabSize: 4,
-        theme: 'default',
+        theme: 'ambiance',
         mode: 'x-shader/x-fragment',
         lineNumbers: true,
         lineWrapping: true,
