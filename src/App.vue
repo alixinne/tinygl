@@ -5,14 +5,14 @@
         <TgCanvas :demo="currentDemo"></TgCanvas>
       </div>
       <div class="column">
-        <b-tabs type="is-boxed">
+        <b-tabs type="is-boxed" v-on:change="codeTabChange" :animated="false">
           <!-- Common code -->
           <b-tab-item label="Common">
-            <codemirror class ="tab-glsl-editor" v-model="demo.common_code" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
+            <codemirror ref="editorCommon" class="tab-glsl-editor" v-model="demo.common_code" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
           </b-tab-item>
           <!-- Demo passes -->
           <b-tab-item v-for="pass in demo.passes" :key="pass.name" :label="pass.name | titlecase">
-            <codemirror class="tab-glsl-editor" v-model="pass.fragment" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
+            <codemirror ref="editorPass" class="tab-glsl-editor" v-model="pass.fragment" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
           </b-tab-item>
         </b-tabs>
 
@@ -71,6 +71,13 @@ export default {
       if (name === 'Ctrl-Enter') {
         this.playDemo()
       }
+    },
+    codeTabChange (index) {
+      let editorTarget = index === 0
+        ? this.$refs.editorCommon
+        : this.$refs.editorPass[index - 1]
+      editorTarget.refresh()
+      this.$nextTick(() => editorTarget.cminstance.focus())
     }
   },
   mounted () {
