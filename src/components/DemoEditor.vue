@@ -2,7 +2,7 @@
   <div>
     <div class="columns is-desktop">
       <div class="column is-narrow has-text-centered">
-        <TgCanvas :demo="demo"></TgCanvas>
+        <TgCanvas :playing="false" :demo="demo"></TgCanvas>
       </div>
       <div class="column">
         <b-tabs type="is-boxed" v-on:change="codeTabChange" :animated="false" v-if="demo">

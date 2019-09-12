@@ -17,11 +17,19 @@ pub use pass::*;
 mod step_program;
 pub use step_program::*;
 
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct UniformState {
+    pub frame_time: f32,
+    pub frame_number: i32,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
 pub struct Demo {
     pub common_code: String,
     pub passes: Vec<Pass>,
+    #[serde(skip)]
+    pub uniform_state: UniformState,
 }
 
 pub enum RenderMode {
@@ -133,7 +141,8 @@ impl Default for Demo {
     fn default() -> Self {
         Self {
             passes: vec![],
-            common_code: "precision mediump float;\nin vec2 texCoords;\nout vec4 color;".to_owned(),
+            common_code: "precision mediump float;\nin vec2 texCoords;\nout vec4 color;\nuniform vec3 iResolution;\nuniform float iTime;\nuniform int iFrame;".to_owned(),
+            uniform_state: Default::default()
         }
     }
 }

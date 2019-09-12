@@ -33,14 +33,17 @@ impl State {
         Ok(())
     }
 
-    pub fn render(&self) {
+    pub fn render(&mut self, frame_time: f32, frame_number: i32) {
         unsafe {
             self.context.gl.clear(glow::COLOR_BUFFER_BIT);
         }
 
-        self.demo
-            .as_ref()
-            .map(|demo| demo.render(&self.context, RenderMode::Full { target: None }));
+        let context = &self.context;
+        self.demo.as_mut().map(|demo| {
+            demo.uniform_state.frame_time = frame_time;
+            demo.uniform_state.frame_number = frame_number;
+            demo.render(context, RenderMode::Full { target: None })
+        });
     }
 
     pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {

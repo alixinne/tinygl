@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use glow::HasContext;
 
-use super::{CompileError, Context, Demo, GlDroppable, StepProgram};
+use super::{CompileError, Context, Demo, GlDroppable, StepProgram, UniformSource};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
@@ -64,7 +64,8 @@ impl PassBuilder {
 
 impl Pass {
     pub fn compile(&mut self, context: &Context, common_code: &str) -> Result<(), CompileError> {
-        self.program = Some(context.compile_fragment(&format!("{}\n{}", common_code, self.fragment))?);
+        self.program =
+            Some(context.compile_fragment(&format!("{}\n{}", common_code, self.fragment))?);
 
         Ok(())
     }
@@ -205,8 +206,8 @@ impl Pass {
             context.gl.viewport(0, 0, rs.x as i32, rs.y as i32);
             // Set program
             context.gl.use_program(Some(program.program));
+
             // Bind uniform samplers
-            // TODO: Cache computations in this
             let mut active_unit = 0u32;
             for sampler in program.uniform_samplers.iter() {
                 if let Some(location) = sampler.location {
@@ -216,6 +217,26 @@ impl Pass {
                         .bind_texture(glow::TEXTURE_2D, demo.get_texture(&sampler.source));
                     context.gl.uniform_1_i32(Some(location), active_unit as i32);
                     active_unit += 1;
+                }
+            }
+
+            // Set uniform values
+            for uniform in program.uniforms.iter() {
+                if let Some(location) = uniform.location {
+                    match uniform.source {
+                        UniformSource::None => uniform.set(&context.gl),
+                        UniformSource::Resolution => {
+                            context
+                                .gl
+                                .uniform_3_f32(Some(location), rs.x as f32, rs.y as f32, 1f32)
+                        }
+                        UniformSource::Time => context
+                            .gl
+                            .uniform_1_f32(Some(location), demo.uniform_state.frame_time),
+                        UniformSource::FrameNumber => context
+                            .gl
+                            .uniform_1_i32(Some(location), demo.uniform_state.frame_number),
+                    }
                 }
             }
 
@@ -260,7 +281,6 @@ impl Pass {
     pub fn get_render_texture(&self) -> Option<<glow::Context as glow::HasContext>::Texture> {
         self.render_texture
     }
-
 }
 
 impl Default for Pass {

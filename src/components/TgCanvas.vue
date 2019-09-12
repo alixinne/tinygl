@@ -11,12 +11,15 @@ export default {
   name: 'TgCanvas',
   props: {
     demo: null,
-    continuous: () => false
+    playing: Boolean
   },
   data () {
     return {
       animationFrameId: null,
-      state: null
+      state: null,
+      frameNumber: 0,
+      frameTime: 0,
+      frameRate: 60.0
     }
   },
   beforeCreate () {
@@ -48,9 +51,9 @@ export default {
 
       this.loadDemo()
     },
-    continuous () {
-      if (this.continuous && this.animationFrameId !== null) {
-        // Start rendering again if continuous turns back on
+    playing () {
+      if (this.playing && this.animationFrameId !== null) {
+        // Start rendering again if playing turns back on
         this.render()
       }
     }
@@ -69,14 +72,18 @@ export default {
     },
     render () {
       this.renderOnce()
-      if (this.continuous) {
+      if (this.playing) {
         this.animationFrameId = window.requestAnimationFrame(this.render)
       } else {
         this.animationFrameId = null
       }
     },
     renderOnce () {
-      this.state.render()
+      this.state.render(this.frameTime, this.frameNumber)
+      if (this.playing) {
+        this.frameNumber++
+        this.frameTime = this.frameNumber / this.frameRate
+      }
     },
     resizeCanvas: debounce(function () {
       let canvas = this.$refs.canvas

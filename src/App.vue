@@ -52,7 +52,7 @@ export default {
       this.demo = demo
     } catch (_error) {
       this.demo = {
-        common_code: 'precision mediump float;\nin vec2 texCoords;\nout vec4 color;',
+        common_code: 'precision mediump float;\nin vec2 texCoords;\nout vec4 color;\nuniform vec3 iResolution;\nuniform float iTime;\nuniform int iFrame;',
         passes: [
           {
             name: 'image',
