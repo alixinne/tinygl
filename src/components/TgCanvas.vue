@@ -88,9 +88,14 @@ export default {
             : window.innerWidth < 1216
               ? 540
               : 640
+      let height = width * 10 / 16
 
       canvas.width = width
-      canvas.height = width * 10 / 16
+      canvas.height = height
+      if (this.state !== null) {
+        this.state.resize(width, height)
+        this.renderOnce()
+      }
     }, 200)
   }
 }

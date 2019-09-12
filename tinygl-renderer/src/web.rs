@@ -38,7 +38,19 @@ impl State {
             self.context.gl.clear(glow::COLOR_BUFFER_BIT);
         }
 
-        self.demo.as_ref().map(|demo| demo.render(&self.context, RenderMode::Full { target: None }));
+        self.demo
+            .as_ref()
+            .map(|demo| demo.render(&self.context, RenderMode::Full { target: None }));
+    }
+
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), JsValue> {
+        self.context.render_size = cgmath::vec2(width, height);
+
+        let context = &self.context;
+        self.demo
+            .as_mut()
+            .map_or(Ok(()), |demo| demo.prepare_render(context))
+            .map_err(|error| error.to_string().into())
     }
 }
 
