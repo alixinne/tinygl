@@ -1,8 +1,6 @@
-//! Definition of the Compilable trait
+//! Definition of the CompileError type
 
 use failure::Fail;
-
-use super::Context;
 
 #[derive(Fail, Debug)]
 pub enum CompileError {
@@ -12,10 +10,6 @@ pub enum CompileError {
     LinkError { log: String },
     #[fail(display = "parse error: {}", error)]
     ParseError { error: String },
-}
-
-pub trait Compilable {
-    fn compile(&mut self, context: &Context) -> Result<(), CompileError>;
 }
 
 impl From<glsl::parser::ParseError> for CompileError {

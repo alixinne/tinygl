@@ -6,8 +6,13 @@
       </div>
       <div class="column">
         <b-tabs type="is-boxed">
-          <b-tab-item v-for="pass in passes" :key="pass.name" :label="pass.name">
-            <codemirror v-model="pass.fragment" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
+          <!-- Common code -->
+          <b-tab-item label="Common">
+            <codemirror class ="tab-glsl-editor" v-model="demo.common_code" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
+          </b-tab-item>
+          <!-- Demo passes -->
+          <b-tab-item v-for="pass in demo.passes" :key="pass.name" :label="pass.name | titlecase">
+            <codemirror class="tab-glsl-editor" v-model="pass.fragment" :options="cmOptions" v-on:keyHandled="editorKeyHandled"></codemirror>
           </b-tab-item>
         </b-tabs>
 
@@ -30,12 +35,15 @@ export default {
   name: 'App',
   data () {
     return {
-      passes: [
-        {
-          name: 'image',
-          fragment: 'precision mediump float;\nin vec2 texCoords;\nout vec4 color;\n\nvoid main() {\n    color = vec4(texCoords.xy, 0.5, 1.0);\n}'
-        }
-      ],
+      demo: {
+        common_code: 'precision mediump float;\nin vec2 texCoords;\nout vec4 color;',
+        passes: [
+          {
+            name: 'image',
+            fragment: 'void main() {\n    color = vec4(texCoords.xy, 0.5, 1.0);\n}'
+          }
+        ]
+      },
       currentDemo: null,
       cmOptions: {
         tabSize: 4,
@@ -56,8 +64,8 @@ export default {
   },
   methods: {
     playDemo () {
-      this.currentDemo = cloneDeep({ passes: this.passes })
-      localStorage.passes = JSON.stringify(this.passes)
+      this.currentDemo = cloneDeep(this.demo)
+      localStorage.demo = JSON.stringify(this.demo)
     },
     editorKeyHandled (_instance, name, _event) {
       if (name === 'Ctrl-Enter') {
@@ -66,8 +74,8 @@ export default {
     }
   },
   mounted () {
-    if (localStorage.passes) {
-      this.passes = JSON.parse(localStorage.passes)
+    if (localStorage.demo) {
+      this.demo = JSON.parse(localStorage.demo)
     }
 
     this.playDemo()

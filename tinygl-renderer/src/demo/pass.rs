@@ -4,7 +4,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use glow::HasContext;
 
-use super::{Compilable, CompileError, Context, Demo, GlDroppable, StepProgram};
+use super::{CompileError, Context, Demo, GlDroppable, StepProgram};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
@@ -46,10 +46,7 @@ impl PassBuilder {
     pub fn sample<S: Into<String>>(name: S) -> PassBuilder {
         Self {
             name: name.into(),
-            fragment: r#"precision mediump float;
-            in vec2 texCoords;
-            out vec4 color;
-            void main() {
+            fragment: r#"void main() {
                 color = vec4(texCoords.xy, 0.5, 1.0);
             }"#
             .to_owned(),
@@ -66,6 +63,12 @@ impl PassBuilder {
 }
 
 impl Pass {
+    pub fn compile(&mut self, context: &Context, common_code: &str) -> Result<(), CompileError> {
+        self.program = Some(context.compile_fragment(&format!("{}\n{}", common_code, self.fragment))?);
+
+        Ok(())
+    }
+
     fn compute_render_size(&self, context: &Context) -> cgmath::Vector2<u32> {
         // TODO: custom render sizes
         context.render_size
@@ -257,24 +260,14 @@ impl Pass {
     pub fn get_render_texture(&self) -> Option<<glow::Context as glow::HasContext>::Texture> {
         self.render_texture
     }
-}
 
-impl Compilable for Pass {
-    fn compile(&mut self, context: &Context) -> Result<(), CompileError> {
-        self.program = Some(context.compile_fragment(&self.fragment)?);
-
-        Ok(())
-    }
 }
 
 impl Default for Pass {
     fn default() -> Self {
         Self {
             name: "image".to_owned(),
-            fragment: r#"precision mediump float;
-            in vec2 texCoords;
-            out vec4 color;
-            void main() {
+            fragment: r#"void main() {
                 color = vec4(0.0, 0.0, 0.0, 1.0);
             }"#
             .to_owned(),

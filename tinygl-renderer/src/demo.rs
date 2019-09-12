@@ -2,8 +2,8 @@
 
 use serde_derive::{Deserialize, Serialize};
 
-mod compilable;
-pub use compilable::*;
+mod compile_error;
+pub use compile_error::*;
 
 mod context;
 pub use context::*;
@@ -20,6 +20,7 @@ pub use step_program::*;
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(default)]
 pub struct Demo {
+    pub common_code: String,
     pub passes: Vec<Pass>,
 }
 
@@ -36,7 +37,20 @@ impl Demo {
     pub fn sample() -> Self {
         Self {
             passes: vec![PassBuilder::sample("image").build()],
+            ..Default::default()
         }
+    }
+
+    pub fn compile(&mut self, context: &Context) -> Result<(), CompileError> {
+        #[cfg(not(target_arch = "wasm32"))]
+        trace!("compiling demo: {:?}", self);
+
+        let common_code = &self.common_code;
+        for pass in &mut self.passes {
+            pass.compile(context, common_code)?;
+        }
+
+        Ok(())
     }
 
     pub fn prepare_render(&mut self, context: &Context) -> Result<(), String> {
@@ -115,22 +129,12 @@ impl Demo {
     }
 }
 
-impl Compilable for Demo {
-    fn compile(&mut self, context: &Context) -> Result<(), CompileError> {
-        #[cfg(not(target_arch = "wasm32"))]
-        trace!("compiling demo: {:?}", self);
-
-        for pass in &mut self.passes {
-            pass.compile(context)?;
-        }
-
-        Ok(())
-    }
-}
-
 impl Default for Demo {
     fn default() -> Self {
-        Self { passes: vec![] }
+        Self {
+            passes: vec![],
+            common_code: "precision mediump float;\nin vec2 texCoords;\nout vec4 color;".to_owned(),
+        }
     }
 }
 

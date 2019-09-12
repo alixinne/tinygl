@@ -39,7 +39,7 @@ impl Context {
                 .expect("cannot create quad vertex shader");
             gl.shader_source(
                 vertex_shader,
-                &format!("{}\n{}", shader_version, vertex_shader_source),
+                &[shader_version, vertex_shader_source].join("\n"),
             );
             gl.compile_shader(vertex_shader);
 
