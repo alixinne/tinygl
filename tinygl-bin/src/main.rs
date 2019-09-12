@@ -13,6 +13,10 @@ use docopt::Docopt;
 use hotwatch::Hotwatch;
 use serde::Deserialize;
 
+use imgui::{FontConfig, FontGlyphRanges, FontSource, Ui};
+use imgui_opengl_renderer::Renderer;
+use imgui_winit_support::{HiDpiMode, WinitPlatform};
+
 use std::sync::{Arc, Mutex};
 
 const USAGE: &'static str = concat!(
@@ -39,6 +43,10 @@ struct Args {
 
 enum UserEvent {
     ReloadDemo,
+}
+
+fn run_ui(ui: &mut Ui) {
+  // TODO: render UI
 }
 
 fn main() {
@@ -74,6 +82,44 @@ fn main() {
         });
         (context, el, windowed_context, "#version 410", render_size)
     };
+
+    // Create Imgui context
+    let mut imgui = imgui::Context::create();
+    imgui.set_ini_filename(None);
+
+    // Create Imgui platform
+    let mut platform = WinitPlatform::init(&mut imgui);
+    platform.attach_window(
+        imgui.io_mut(),
+        windowed_context.window(),
+        HiDpiMode::Rounded,
+    );
+
+    // Setup fonts
+    let hidpi_factor = platform.hidpi_factor();
+    let font_size = (13.0 * hidpi_factor) as f32;
+    imgui.fonts().add_font(&[
+        FontSource::DefaultFontData {
+            config: Some(FontConfig {
+                size_pixels: font_size,
+                ..FontConfig::default()
+            }),
+        },
+        FontSource::TtfData {
+            data: include_bytes!("../resources/mplus-1p-regular.ttf"),
+            size_pixels: font_size,
+            config: Some(FontConfig {
+                rasterizer_multiply: 1.75,
+                glyph_ranges: FontGlyphRanges::japanese(),
+                ..FontConfig::default()
+            }),
+        },
+    ]);
+
+    imgui.io_mut().font_global_scale = (1.0 / hidpi_factor) as f32;
+
+    // Imgui renderer
+    let renderer = Renderer::new(&mut imgui, |s| windowed_context.get_proc_address(s) as _);
 
     // Create default context
     let state = Arc::new(Mutex::new(State::new(gl, render_size, shader_version)));
@@ -116,17 +162,19 @@ fn main() {
     // Draw once when starting
     windowed_context.window().request_redraw();
 
+    let mut last_frame = std::time::Instant::now();
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Wait;
+
+        // Handle event using Imgui
+        platform.handle_event(imgui.io_mut(), windowed_context.window(), &event);
 
         match event {
             Event::LoopDestroyed => {
                 info!("Event::LoopDestroyed!");
                 state.lock().unwrap().drop_demo();
                 return;
-            }
-            Event::EventsCleared => {
-                // TODO: check behavior
             }
             Event::UserEvent(UserEvent::ReloadDemo) => {
                 match state.lock().unwrap().load_file(&path) {
@@ -159,8 +207,20 @@ fn main() {
                         .resize(cgmath::vec2(size.width as u32, size.height as u32))
                         .expect("failed to resize resources");
 
+                    let io = imgui.io_mut();
+                    platform
+                        .prepare_frame(io, window)
+                        .expect("failed to start imgui frame");
+                    last_frame = io.update_delta_time(last_frame);
+                    let mut ui = imgui.frame();
+                    run_ui(&mut ui);
+
                     // Render
                     state.render();
+
+                    // Render Imgui
+                    platform.prepare_render(&ui, window);
+                    renderer.render(ui);
 
                     // Swap result
                     windowed_context.swap_buffers().unwrap();
@@ -169,7 +229,10 @@ fn main() {
                     info!("WindowEvent::CloseRequested");
                     *control_flow = ControlFlow::Exit
                 }
-                _ => (),
+                _ => {
+                    // For Imgui
+                    windowed_context.window().request_redraw();
+                }
             },
             _ => (),
         }

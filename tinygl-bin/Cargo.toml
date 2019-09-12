@@ -25,3 +25,6 @@ hotwatch = "0.4.2"
 docopt = "1.1.0"
 serde = "1.0.100"
 serde_yaml = "0.8.9"
+imgui = "0.2.1"
+imgui-opengl-renderer = { git = "https://github.com/vtavernier/rust-imgui-opengl-renderer.git" }
+imgui-winit-support = { version = "0.2.1", default-features = false, features = ["winit-20"] }
