@@ -50,6 +50,10 @@ fn run_ui(ui: &mut Ui) {
 }
 
 fn main() {
+    env_logger::from_env(env_logger::Env::new().filter_or("TINYGL_LOG", "debug"))
+        .default_format_timestamp(false)
+        .init();
+
     let args: Args = Docopt::new(USAGE)
         .map(|d| {
             d.version(Some(format!(
@@ -62,8 +66,6 @@ fn main() {
         .unwrap_or_else(|e| e.exit());
 
     let (gl, event_loop, windowed_context, shader_version, render_size) = {
-        env_logger::init();
-
         let render_size = vec2(1024, 768);
         let el = glutin::event_loop::EventLoop::<UserEvent>::with_user_event();
         let wb = glutin::window::WindowBuilder::new()
