@@ -74,14 +74,12 @@ impl State {
             .map_or(Ok(()), |demo| demo.prepare_render(context))
     }
 
-    pub fn render(&self) {
-        if let Some(demo) = &self.demo {
-            self.context.render(demo);
-        } else {
-            unsafe {
-                self.context.gl.clear(glow::COLOR_BUFFER_BIT);
-            }
+    pub fn render(&self, mode: RenderMode) {
+        unsafe {
+            self.context.gl.clear(glow::COLOR_BUFFER_BIT);
         }
+
+        self.demo.as_ref().map(|demo| demo.render(&self.context, mode));
     }
 
     pub fn bind_vao(&self) {

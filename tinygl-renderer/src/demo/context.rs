@@ -2,7 +2,7 @@
 
 use glow::HasContext;
 
-use super::{CompileError, Demo, StepProgram};
+use super::{CompileError, StepProgram};
 
 pub struct Context {
     pub gl: glow::Context,
@@ -57,13 +57,6 @@ impl Context {
     pub fn bind_vao(&self) {
         unsafe {
             self.gl.bind_vertex_array(Some(self.quad_vao));
-        }
-    }
-
-    pub fn render(&self, demo: &Demo) {
-        unsafe {
-            self.gl.clear(glow::COLOR_BUFFER_BIT);
-            demo.render(self);
         }
     }
 

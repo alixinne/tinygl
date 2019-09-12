@@ -19,6 +19,8 @@ use imgui_winit_support::{HiDpiMode, WinitPlatform};
 
 use std::sync::{Arc, Mutex};
 
+use tinygl_renderer::demo::RenderMode;
+
 const USAGE: &'static str = concat!(
     env!("CARGO_PKG_NAME"),
     " v",
@@ -217,8 +219,8 @@ fn main() {
                     let mut ui = imgui.frame();
                     run_ui(&mut ui);
 
-                    // Render
-                    state.render();
+                    // Render all passes to the default framebuffer
+                    state.render(RenderMode::Full { target: None });
 
                     // Render Imgui
                     platform.prepare_render(&ui, window);

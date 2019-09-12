@@ -71,131 +71,125 @@ impl Pass {
         context.render_size
     }
 
-    pub fn prepare_render(&mut self, context: &Context, last_pass: bool) -> Result<(), String> {
+    pub fn prepare_render(&mut self, context: &Context) -> Result<(), String> {
         self.render_size = Some(self.compute_render_size(context));
         let render_size = self.render_size.unwrap();
         let mut created_render_objects = false;
 
         unsafe {
-            if last_pass {
-                // Clear everything if we're the last pass
-                self.render_texture_size = None;
-                self.render_texture
-                    .take()
-                    .map(|texture| context.gl.delete_texture(texture));
-                self.render_framebuffer
-                    .take()
-                    .map(|framebuffer| context.gl.delete_framebuffer(framebuffer));
-            } else {
-                // Create texture if needed
-                if self.render_texture.is_none() {
-                    self.render_texture = Some(context.gl.create_texture()?);
+            // Create texture if needed
+            if self.render_texture.is_none() {
+                self.render_texture = Some(context.gl.create_texture()?);
 
-                    // Note that we created a texture this call
-                    created_render_objects = true;
-                }
+                // Note that we created a texture this call
+                created_render_objects = true;
+            }
 
-                // Make sure texture is the right size
-                if self.render_texture_size.is_none()
-                    || self.render_texture_size.unwrap() != render_size
-                {
-                    // Bind texture
-                    context
-                        .gl
-                        .bind_texture(glow::TEXTURE_2D, self.render_texture);
-
-                    // Set default filter to nearest
-                    // TODO: support mipmaps and other filters
-                    context.gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MIN_FILTER,
-                        glow::NEAREST as i32,
-                    );
-                    context.gl.tex_parameter_i32(
-                        glow::TEXTURE_2D,
-                        glow::TEXTURE_MAG_FILTER,
-                        glow::NEAREST as i32,
-                    );
-
-                    // TODO: support other texture formats
-                    context.gl.tex_image_2d(
-                        glow::TEXTURE_2D,
-                        0,
-                        glow::RGBA as i32,
-                        render_size.x as i32,
-                        render_size.y as i32,
-                        0,
-                        glow::RGBA,
-                        glow::UNSIGNED_BYTE,
-                        None,
-                    );
-
-                    let error = context.gl.get_error();
-                    if error != glow::NO_ERROR {
-                        // Unbind texture
-                        context.gl.bind_texture(glow::TEXTURE_2D, None);
-                        // Throw the texture away, we'll try with a new one
-                        context
-                            .gl
-                            .delete_texture(self.render_texture.take().unwrap());
-
-                        return Err(format!("failed to create texture: {}", error));
-                    }
-
-                    self.render_texture_size = Some(render_size);
-
-                    // Unbind texture
-                    context.gl.bind_texture(glow::TEXTURE_2D, None);
-                }
-
-                // Create framebuffer if needed
-                if self.render_framebuffer.is_none() {
-                    self.render_framebuffer = Some(context.gl.create_framebuffer()?);
-
-                    // We created the framebuffer, so it needs the textures to be attached
-                    created_render_objects = true;
-                }
-
-                // Bind framebuffer
+            // Make sure texture is the right size
+            if self.render_texture_size.is_none()
+                || self.render_texture_size.unwrap() != render_size
+            {
+                // Bind texture
                 context
                     .gl
-                    .bind_framebuffer(glow::FRAMEBUFFER, self.render_framebuffer);
+                    .bind_texture(glow::TEXTURE_2D, self.render_texture);
 
-                // Bind the texture to the framebuffer
-                if created_render_objects {
-                    context.gl.framebuffer_texture_2d(
-                        glow::FRAMEBUFFER,
-                        glow::COLOR_ATTACHMENT0,
-                        glow::TEXTURE_2D,
-                        self.render_texture,
-                        0,
-                    );
+                // Set default filter to nearest
+                // TODO: support mipmaps and other filters
+                context.gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MIN_FILTER,
+                    glow::NEAREST as i32,
+                );
+                context.gl.tex_parameter_i32(
+                    glow::TEXTURE_2D,
+                    glow::TEXTURE_MAG_FILTER,
+                    glow::NEAREST as i32,
+                );
 
-                    let error = context.gl.get_error();
-                    if error != glow::NO_ERROR {
-                        // Unbind framebuffer
-                        context.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+                // TODO: support other texture formats
+                context.gl.tex_image_2d(
+                    glow::TEXTURE_2D,
+                    0,
+                    glow::RGBA as i32,
+                    render_size.x as i32,
+                    render_size.y as i32,
+                    0,
+                    glow::RGBA,
+                    glow::UNSIGNED_BYTE,
+                    None,
+                );
 
-                        return Err(format!("failed to attach texture: {}", error));
-                    }
+                let error = context.gl.get_error();
+                if error != glow::NO_ERROR {
+                    // Unbind texture
+                    context.gl.bind_texture(glow::TEXTURE_2D, None);
+                    // Throw the texture away, we'll try with a new one
+                    context
+                        .gl
+                        .delete_texture(self.render_texture.take().unwrap());
+
+                    return Err(format!("failed to create texture: {}", error));
                 }
 
-                // Check framebuffer status
-                let status = context.gl.check_framebuffer_status(glow::FRAMEBUFFER);
+                self.render_texture_size = Some(render_size);
 
-                // Unbind framebuffer
-                context.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+                // Unbind texture
+                context.gl.bind_texture(glow::TEXTURE_2D, None);
+            }
 
-                if status != glow::FRAMEBUFFER_COMPLETE {
-                    return Err("framebuffer is incomplete".to_owned());
+            // Create framebuffer if needed
+            if self.render_framebuffer.is_none() {
+                self.render_framebuffer = Some(context.gl.create_framebuffer()?);
+
+                // We created the framebuffer, so it needs the textures to be attached
+                created_render_objects = true;
+            }
+
+            // Bind framebuffer
+            context
+                .gl
+                .bind_framebuffer(glow::FRAMEBUFFER, self.render_framebuffer);
+
+            // Bind the texture to the framebuffer
+            if created_render_objects {
+                context.gl.framebuffer_texture_2d(
+                    glow::FRAMEBUFFER,
+                    glow::COLOR_ATTACHMENT0,
+                    glow::TEXTURE_2D,
+                    self.render_texture,
+                    0,
+                );
+
+                let error = context.gl.get_error();
+                if error != glow::NO_ERROR {
+                    // Unbind framebuffer
+                    context.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+
+                    return Err(format!("failed to attach texture: {}", error));
                 }
+            }
+
+            // Check framebuffer status
+            let status = context.gl.check_framebuffer_status(glow::FRAMEBUFFER);
+
+            // Unbind framebuffer
+            context.gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+
+            if status != glow::FRAMEBUFFER_COMPLETE {
+                return Err("framebuffer is incomplete".to_owned());
             }
         }
 
         Ok(())
     }
 
-    pub fn render(&self, context: &Context, demo: &Demo) {
+    pub fn render(
+        &self,
+        context: &Context,
+        demo: &Demo,
+        target: Option<Option<<glow::Context as HasContext>::Framebuffer>>,
+    ) {
         unsafe {
             let rs = self.render_size.expect("prepare_render was not called!");
             let program = self.program.as_ref().expect("compile was not called");
@@ -203,7 +197,7 @@ impl Pass {
             // Bind framebuffer
             context
                 .gl
-                .bind_framebuffer(glow::FRAMEBUFFER, self.render_framebuffer);
+                .bind_framebuffer(glow::FRAMEBUFFER, target.unwrap_or(self.render_framebuffer));
             // Set viewport for this draw call
             context.gl.viewport(0, 0, rs.x as i32, rs.y as i32);
             // Set program
@@ -230,6 +224,33 @@ impl Pass {
                 context.gl.active_texture(glow::TEXTURE0 + i);
                 context.gl.bind_texture(glow::TEXTURE_2D, None);
             }
+        }
+    }
+
+    pub fn blit(
+        &self,
+        context: &Context,
+        target: Option<<glow::Context as HasContext>::Framebuffer>,
+    ) {
+        unsafe {
+            context
+                .gl
+                .bind_framebuffer(glow::READ_FRAMEBUFFER, self.render_framebuffer);
+            context.gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, target);
+
+            let size = self.render_size.unwrap();
+            context.gl.blit_framebuffer(
+                0,
+                0,
+                size.x as i32,
+                size.y as i32,
+                0,
+                0,
+                size.x as i32,
+                size.y as i32,
+                glow::COLOR_BUFFER_BIT,
+                glow::NEAREST,
+            );
         }
     }
 

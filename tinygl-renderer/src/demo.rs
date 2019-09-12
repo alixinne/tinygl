@@ -23,6 +23,15 @@ pub struct Demo {
     pub passes: Vec<Pass>,
 }
 
+pub enum RenderMode {
+    Full {
+        target: Option<<glow::Context as glow::HasContext>::Framebuffer>,
+    },
+    Blit {
+        target: Option<<glow::Context as glow::HasContext>::Framebuffer>,
+    },
+}
+
 impl Demo {
     pub fn sample() -> Self {
         Self {
@@ -31,18 +40,58 @@ impl Demo {
     }
 
     pub fn prepare_render(&mut self, context: &Context) -> Result<(), String> {
-        let len = self.passes.len();
-
-        for (i, pass) in self.passes.iter_mut().enumerate() {
-            pass.prepare_render(context, i == len - 1)?;
+        for pass in &mut self.passes {
+            pass.prepare_render(context)?;
         }
 
         Ok(())
     }
 
-    pub fn render(&self, context: &Context) {
-        for pass in &self.passes {
-            pass.render(context, self);
+    fn render_full_to_target(
+        &self,
+        context: &Context,
+        target: Option<Option<<glow::Context as glow::HasContext>::Framebuffer>>,
+    ) {
+        let len = self.passes.len();
+
+        for (i, pass) in self.passes.iter().enumerate() {
+            pass.render(context, self, if i == (len - 1) { target } else { None });
+        }
+    }
+
+    pub fn render(&self, context: &Context, mode: RenderMode) {
+        match mode {
+            RenderMode::Full { target } => {
+                self.render_full_to_target(context, Some(target));
+            }
+            RenderMode::Blit { target } => {
+                self.passes.last().map(|pass| pass.blit(context, target));
+            }
+        }
+    }
+
+    pub fn render_intermediate(
+        &self,
+        context: &Context,
+        mode: RenderMode,
+        predicate: impl Fn((usize, &Pass)) -> bool,
+    ) {
+        // Full render if requested, but without a target
+        if let RenderMode::Full { .. } = mode {
+            self.render_full_to_target(context, None);
+        }
+
+        // Then blit the requested result
+        let target = match mode {
+            RenderMode::Full { target } => target,
+            RenderMode::Blit { target } => target,
+        };
+
+        for (i, pass) in self.passes.iter().enumerate() {
+            if predicate((i, pass)) {
+                pass.blit(context, target);
+                break;
+            }
         }
     }
 

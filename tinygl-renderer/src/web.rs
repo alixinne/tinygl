@@ -34,13 +34,11 @@ impl State {
     }
 
     pub fn render(&self) {
-        if let Some(demo) = &self.demo {
-            demo.render(&self.context);
-        } else {
-            unsafe {
-                self.context.gl.clear(glow::COLOR_BUFFER_BIT);
-            }
+        unsafe {
+            self.context.gl.clear(glow::COLOR_BUFFER_BIT);
         }
+
+        self.demo.as_ref().map(|demo| demo.render(&self.context, RenderMode::Full { target: None }));
     }
 }
 
