@@ -84,4 +84,7 @@ export default {
 </script>
 
 <style lang="scss">
+.tab-glsl-editor {
+  margin: -1rem;
+}
 </style>
