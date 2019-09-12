@@ -1,6 +1,26 @@
 <template>
   <div id="app">
-    <DemoEditor :demo.sync="demo"></DemoEditor>
+    <div class="has-background-dark">
+      <div class="container">
+        <b-navbar type="is-dark">
+          <template slot="brand">
+            <b-navbar-item><span class="is-size-3 text-bold">tinygl</span></b-navbar-item>
+          </template>
+
+          <template slot="start">
+          </template>
+
+          <template slot="end">
+          </template>
+        </b-navbar>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="container">
+        <DemoEditor :demo.sync="demo"></DemoEditor>
+      </div>
+    </section>
   </div>
 </template>
 

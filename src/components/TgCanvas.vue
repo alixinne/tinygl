@@ -1,6 +1,6 @@
 <template>
   <div>
-    <canvas ref="canvas" width="640" height="480"></canvas>
+    <canvas ref="canvas"></canvas>
   </div>
 </template>
 
@@ -32,9 +32,9 @@ export default {
       })
       .catch(console.error)
   },
-  created () {
+  mounted () {
     window.addEventListener('resize', this.resizeCanvas)
-    this.$nextTick(() => this.resizeCanvas())
+    this.$nextTick(this.resizeCanvas)
   },
   destroyed () {
     window.removeEventListener('resize', this.resizeCanvas)
@@ -82,16 +82,16 @@ export default {
       let canvas = this.$refs.canvas
       let width =
         window.innerWidth <= 768
-          ? window.innerWidth
+          ? window.innerWidth - 2 * canvas.getBoundingClientRect().left
           : window.innerWidth < 1024
-            ? 768
+            ? 540
             : window.innerWidth < 1216
               ? 540
               : 640
 
       canvas.width = width
       canvas.height = width * 10 / 16
-    }, 100)
+    }, 200)
   }
 }
 </script>
