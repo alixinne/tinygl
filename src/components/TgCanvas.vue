@@ -5,6 +5,8 @@
 </template>
 
 <script>
+import { debounce } from 'lodash-es'
+
 export default {
   name: 'TgCanvas',
   props: {
@@ -29,6 +31,13 @@ export default {
         }
       })
       .catch(console.error)
+  },
+  created () {
+    window.addEventListener('resize', this.resizeCanvas)
+    this.$nextTick(() => this.resizeCanvas())
+  },
+  destroyed () {
+    window.removeEventListener('resize', this.resizeCanvas)
   },
   watch: {
     demo () {
@@ -68,7 +77,21 @@ export default {
     },
     renderOnce () {
       this.state.render()
-    }
+    },
+    resizeCanvas: debounce(function () {
+      let canvas = this.$refs.canvas
+      let width =
+        window.innerWidth <= 768
+          ? window.innerWidth
+          : window.innerWidth < 1024
+            ? 768
+            : window.innerWidth < 1216
+              ? 540
+              : 640
+
+      canvas.width = width
+      canvas.height = width * 10 / 16
+    }, 100)
   }
 }
 </script>

@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="columns is-desktop">
-      <div class="column">
+      <div class="column is-narrow has-text-centered">
         <TgCanvas :demo="demo"></TgCanvas>
       </div>
       <div class="column">

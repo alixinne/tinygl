@@ -52,7 +52,7 @@ export default {
 @import "~buefy/src/scss/buefy";
 
 html {
-  font-size: 22px;
+  font-size: 18px;
   @include desktop {
     font-size: 12px;
   }
