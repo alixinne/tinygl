@@ -8,7 +8,8 @@
 export default {
   name: 'TgCanvas',
   props: {
-    demo: null
+    demo: null,
+    continuous: () => false
   },
   data () {
     return {
@@ -37,12 +38,19 @@ export default {
       }
 
       this.loadDemo()
+    },
+    continuous () {
+      if (this.continuous && this.animationFrameId !== null) {
+        // Start rendering again if continuous turns back on
+        this.render()
+      }
     }
   },
   methods: {
     loadDemo () {
       try {
         this.state.load_demo(this.demo)
+        this.renderOnce()
       } catch (error) {
         this.$buefy.toast.open({
           message: error,
@@ -52,7 +60,11 @@ export default {
     },
     render () {
       this.renderOnce()
-      this.animationFrameId = window.requestAnimationFrame(this.render)
+      if (this.continuous) {
+        this.animationFrameId = window.requestAnimationFrame(this.render)
+      } else {
+        this.animationFrameId = null
+      }
     },
     renderOnce () {
       this.state.render()
