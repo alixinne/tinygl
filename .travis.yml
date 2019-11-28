@@ -1,0 +1,21 @@
+language: rust
+rust:
+  - nightly
+before_install:
+  - nvm install 12.13.1
+cache:
+  cargo: true
+  yarn: true
+  pip: true
+script:
+  - yarn install
+  - yarn build
+after_success: |
+  [ $TRAVIS_BRANCH = master ] &&
+  [ $TRAVIS_PULL_REQUEST = false ] &&
+  pip install --user ghp-import &&
+  ghp-import -n dist &&
+  git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+env:
+  global:
+    secure: P0g0A2qsCDY+LPcOd5BbpYyuINk3BN/Kr04fGOxJvY2idn7xUgGwF+8f3coGhEd1NVbe0WCLdkOoh62tE/u1oGXwNdX+G42XjSschoENL3x7uQxaL3D0rYtZIAT2oJwtDQGa7VQ/EZwghTUYK4NTpQK3N/qzrj8i1en2zaw7w5Ew/iXa0OrBXDbtxSrzV5fp55aC0CN4nSQyURyjt8KDEUuI5ASiEtfjxBHZrHNywKzyCEj/h5EsEE+UawSIouK331tQLURUvX1hcqYHVHN3CYEcUG9gn9ZfMqGRIU9qOOhm7+XPQ/jL1Q1gauBXmvecE5o+x7QeDLQ14igzdoeNUMeIpP0AfRrdJxIQjujN7A5kDPu727rXFq/61e6iBePpgdPq1sHP5TRdgC89coH1RoKs7N4P0ybRQ/gVL/Z6BjeK29iNF3F3NOHYbg12ARh5qhXyOJ4fPUbC0XiI0JorXhJmgWTS8gE91xi88mDH5ScglAKPTCD44a/41+Mgve7WZEtCZ0PrsJhDHW3dtlaBb+gaK8eTtTPvZLRMCYeaBeEu+ORycjCvJ5OgD2gIiOQrPNd2cJPWcG+HBtYmsLANfUrHbOzzLQoov08QBR8FMJAyrInxYHgS1SR12G9I+UgALY3CEbBpE8tdI5XpFeZ+INquw+0geXES+Zfya+m3ZYw=
