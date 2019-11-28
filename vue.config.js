@@ -12,5 +12,6 @@ module.exports = {
     watchOptions: {
       ignored: ['target', 'node_modules']
     }
-  }
+  },
+  publicPath: './'
 }
