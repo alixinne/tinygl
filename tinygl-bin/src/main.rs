@@ -53,7 +53,7 @@ fn run_ui(ui: &mut Ui) {
 
 fn main() {
     env_logger::from_env(env_logger::Env::new().filter_or("TINYGL_LOG", "debug"))
-        .default_format_timestamp(false)
+        .format_timestamp(None)
         .init();
 
     let args: Args = Docopt::new(USAGE)

@@ -17,7 +17,7 @@ fn compile_default() {
             .expect("failed to prepare render");
 
         context.bind_vao();
-        demo.render(&context);
+        demo.render(&context, RenderMode::Full { target: None });
 
         demo.drop(&context.gl);
     });

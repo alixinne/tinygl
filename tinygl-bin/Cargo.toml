@@ -14,17 +14,17 @@ path = "src/main.rs"
 [dependencies]
 tinygl-renderer = { path = "../tinygl-renderer" }
 
-env_logger = "0.6.2"
-glow = { version = "0.3.0-alpha2", features = ["glutin"] }
-glutin = "0.22.0-alpha3"
+env_logger = "0.7.1"
+glow = { version = "0.3.0-alpha4", features = ["glutin"] }
+glutin = "0.22.0-alpha5"
 log = "0.4.8"
 cgmath = "0.17.0"
-failure = "0.1.5"
-serde_json = "1.0.40"
+failure = "0.1.6"
+serde_json = "1.0.42"
 hotwatch = "0.4.2"
 docopt = "1.1.0"
-serde = "1.0.100"
-serde_yaml = "0.8.9"
+serde = "1.0.103"
+serde_yaml = "0.8.11"
 imgui = "0.2.1"
-imgui-opengl-renderer = { git = "https://github.com/vtavernier/rust-imgui-opengl-renderer.git" }
+imgui-opengl-renderer = "0.6.0"
 imgui-winit-support = { version = "0.2.1", default-features = false, features = ["winit-20"] }
