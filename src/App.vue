@@ -11,6 +11,7 @@
           </template>
 
           <template slot="end">
+            <b-navbar-item><a href="docs/tinygl_renderer/">API documentation</a></b-navbar-item>
           </template>
         </b-navbar>
       </div>

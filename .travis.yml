@@ -13,6 +13,8 @@ script:
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
+  cargo doc --no-deps -p tinygl_renderer &&
+  cp -r target/doc dist/docs &&
   pip install --user ghp-import &&
   ghp-import -n dist &&
   git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
