@@ -3,12 +3,13 @@ name = "tinygl"
 version = "0.1.0"
 authors = ["Vincent Tavernier <vincent.tavernier@inria.fr>"]
 edition = "2018"
+license = "MIT"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-glow = { git = "https://github.com/vtavernier/glow.git", rev = "d3ecf4c" }
+glow = { git = "https://github.com/vtavernier/glow.git" }
 cgmath = "0.17.0"
 log = "0.4.8"
 backtrace = "0.3.44"
