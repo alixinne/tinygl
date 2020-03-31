@@ -30,21 +30,25 @@ pub trait GlDrop {
 /// This keeps a RC reference to the context, so it is best used as a long-lived handle.
 pub struct GlHandle<T: GlDrop> {
     gl: Rc<crate::Context>,
-    res: T,
+    res: Option<T>,
 }
 
 impl<T: GlDrop> GlHandle<T> {
     pub fn new(gl: &Rc<crate::Context>, res: T) -> Self {
         Self {
             gl: gl.clone(),
-            res,
+            res: Some(res),
         }
+    }
+
+    pub fn into_inner(mut self) -> T {
+        self.res.take().unwrap()
     }
 }
 
 impl<T: GlDrop> Drop for GlHandle<T> {
     fn drop(&mut self) {
-        self.res.drop(self.gl.as_ref());
+        self.res.take().map(|mut res| res.drop(self.gl.as_ref()));
     }
 }
 
@@ -52,25 +56,25 @@ impl<T: GlDrop> std::ops::Deref for GlHandle<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.res
+        self.res.as_ref().unwrap()
     }
 }
 
 impl<T: GlDrop> std::ops::DerefMut for GlHandle<T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.res
+        self.res.as_mut().unwrap()
     }
 }
 
 impl<T: GlDrop> std::convert::AsRef<T> for GlHandle<T> {
     fn as_ref(&self) -> &T {
-        &self.res
+        self.res.as_ref().unwrap()
     }
 }
 
 impl<T: GlDrop> std::convert::AsMut<T> for GlHandle<T> {
     fn as_mut(&mut self) -> &mut T {
-        &mut self.res
+        self.res.as_mut().unwrap()
     }
 }
 
@@ -79,30 +83,34 @@ impl<T: GlDrop> std::convert::AsMut<T> for GlHandle<T> {
 /// This keeps a reference to the context, so it is best used as a temporary handle.
 pub struct GlRefHandle<'gl, T: GlDrop> {
     gl: &'gl crate::Context,
-    res: T,
+    res: Option<T>,
 }
 
 impl<'gl, T: GlDrop> GlRefHandle<'gl, T> {
     pub fn new(gl: &'gl crate::Context, res: T) -> Self {
-        Self { gl, res }
+        Self { gl, res: Some(res) }
+    }
+
+    pub fn into_inner(mut self) -> T {
+        self.res.take().unwrap()
     }
 }
 
 impl<'gl, T: GlDrop> Drop for GlRefHandle<'gl, T> {
     fn drop(&mut self) {
-        self.res.drop(self.gl);
+        self.res.take().map(|mut res| res.drop(self.gl));
     }
 }
 
 impl<'gl, T: GlDrop> std::convert::AsRef<T> for GlRefHandle<'gl, T> {
     fn as_ref(&self) -> &T {
-        &self.res
+        self.res.as_ref().unwrap()
     }
 }
 
 impl<'gl, T: GlDrop> std::convert::AsMut<T> for GlRefHandle<'gl, T> {
     fn as_mut(&mut self) -> &mut T {
-        &mut self.res
+        self.res.as_mut().unwrap()
     }
 }
 
@@ -110,12 +118,12 @@ impl<'gl, T: GlDrop> std::ops::Deref for GlRefHandle<'gl, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        &self.res
+        self.res.as_ref().unwrap()
     }
 }
 
 impl<'gl, T: GlDrop> std::ops::DerefMut for GlRefHandle<'gl, T> {
     fn deref_mut(&mut self) -> &mut T {
-        &mut self.res
+        self.res.as_mut().unwrap()
     }
 }
