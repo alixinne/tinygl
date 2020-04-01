@@ -12,6 +12,7 @@ pub use glow;
 
 pub mod prelude {
     pub use super::glow::HasContext;
+    pub use super::gl::CheckGlErrorExt;
 
     pub use super::wrappers::ProgramCommon;
     pub use super::wrappers::ShaderCommon;
