@@ -24,14 +24,14 @@ impl Framebuffer {
         gl: &crate::Context,
         target: u32,
         attachment: u32,
-        renderbuffer: Option<impl AsRef<super::Renderbuffer>>,
+        renderbuffer: Option<&super::Renderbuffer>,
     ) {
         unsafe {
             gl.framebuffer_renderbuffer(
                 target,
                 attachment,
                 crate::gl::RENDERBUFFER,
-                renderbuffer.map(|rb| rb.as_ref().name()),
+                renderbuffer.map(|rb| rb.name()),
             );
         }
     }
@@ -41,14 +41,14 @@ impl Framebuffer {
         gl: &crate::Context,
         target: u32,
         attachment: u32,
-        texture: Option<impl AsRef<super::Texture>>,
+        texture: Option<&super::Texture>,
         level: i32,
     ) {
         unsafe {
             gl.framebuffer_texture(
                 target,
                 attachment,
-                texture.map(|rb| rb.as_ref().name()),
+                texture.map(|rb| rb.name()),
                 level,
             );
         }
