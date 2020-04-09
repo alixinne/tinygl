@@ -182,10 +182,21 @@ impl WrappedProgram {
         }
         writeln!(wr, "        )?)")?;
         writeln!(wr, "    }}")?;
+
+        // List of seen uniforms, since uniform names are unique
+        let mut known = std::collections::HashSet::new();
+
         // Uniform getters/setters for the included shaders
         for shader in &attached_shaders.shaders_with_uniforms {
             for uniform in shader.uniforms() {
                 let ty = uniform.ty.unwrap();
+
+                // Skip this uniform if it has been added already
+                if known.contains(&uniform.name) {
+                    continue;
+                } else {
+                    known.insert(&uniform.name);
+                }
 
                 writeln!(
                     wr,
