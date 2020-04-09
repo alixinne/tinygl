@@ -45,11 +45,48 @@ impl Framebuffer {
         level: i32,
     ) {
         unsafe {
-            gl.framebuffer_texture(
+            gl.framebuffer_texture(target, attachment, texture.map(|rb| rb.name()), level);
+        }
+    }
+
+    pub fn texture_2d(
+        &self,
+        gl: &crate::Context,
+        target: u32,
+        attachment: u32,
+        texture_target: u32,
+        texture: Option<&super::Texture>,
+        level: i32,
+    ) {
+        unsafe {
+            gl.framebuffer_texture_2d(
                 target,
                 attachment,
+                texture_target,
                 texture.map(|rb| rb.name()),
                 level,
+            );
+        }
+    }
+
+    pub fn texture_3d(
+        &self,
+        gl: &crate::Context,
+        target: u32,
+        attachment: u32,
+        texture_target: u32,
+        texture: Option<&super::Texture>,
+        level: i32,
+        layer: i32,
+    ) {
+        unsafe {
+            gl.framebuffer_texture_3d(
+                target,
+                attachment,
+                texture_target,
+                texture.map(|rb| rb.name()),
+                level,
+                layer,
             );
         }
     }
