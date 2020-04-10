@@ -154,7 +154,7 @@ impl WrappedItem for WrappedUniformSet<'_, '_> {
     }
 
     fn write_root_include(&self, wr: &mut dyn std::io::Write) -> Result<(), crate::Error> {
-        writeln!(wr, "// {}", self.id)?;
+        writeln!(wr, "// {} uniform set", self.id)?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
     }

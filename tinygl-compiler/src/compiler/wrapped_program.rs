@@ -212,7 +212,7 @@ impl WrappedItem for WrappedProgram<'_> {
     }
 
     fn write_root_include(&self, wr: &mut dyn Write) -> Result<(), crate::Error> {
-        writeln!(wr, "// {}", self.id)?;
+        writeln!(wr, "// {} program", self.id)?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
     }

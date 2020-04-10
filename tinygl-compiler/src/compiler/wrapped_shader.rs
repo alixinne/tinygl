@@ -351,7 +351,7 @@ impl WrappedItem for WrappedShader {
     }
 
     fn write_root_include(&self, wr: &mut dyn Write) -> Result<(), crate::Error> {
-        writeln!(wr, "// {}", self.source_path.to_string_lossy())?;
+        writeln!(wr, "// {} shader", self.source_path.to_string_lossy())?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
     }

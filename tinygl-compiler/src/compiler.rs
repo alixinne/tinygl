@@ -267,6 +267,7 @@ impl Compiler {
         let mut wr = BufWriter::new(output_rs);
 
         for item in items {
+            item.write(dest.as_ref())?;
             item.write_root_include(&mut wr)?;
         }
 
