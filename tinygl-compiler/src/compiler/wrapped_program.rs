@@ -9,6 +9,8 @@ use heck::SnakeCase;
 use super::wrapped_shader::*;
 use super::WrappedItem;
 
+use crate::types::prelude::*;
+
 pub struct WrappedProgram<'s> {
     id: String,
     struct_name: String,
@@ -79,8 +81,6 @@ impl<'s> WrappedProgram<'s> {
             )?;
         }
         writeln!(wr, "              ) -> Result<Self, String> {{")?;
-        writeln!(wr, "        use ::tinygl::wrappers::ShaderCommon;")?;
-        writeln!(wr, "        use ::tinygl::HasContext;")?;
         writeln!(
             wr,
             "        let program_name = ::tinygl::wrappers::RuntimeProgramBuilder::new(gl)"
@@ -90,18 +90,17 @@ impl<'s> WrappedProgram<'s> {
         }
         writeln!(wr, "            .build()?")?;
         writeln!(wr, "            .into_inner();")?;
-        writeln!(wr, "            Ok(Self {{")?;
-        writeln!(wr, "                name: program_name,")?;
+        writeln!(wr, "        Ok(Self {{")?;
+        writeln!(wr, "            name: program_name,")?;
         for shader in self.shaders_with_uniforms() {
             writeln!(
                 wr,
-                "                {}: {}::new(gl, program_name),",
+                "            {}: {}::new(gl, program_name),",
                 shader.uniform_locations_name(),
                 shader.uniform_struct_name()
             )?;
         }
-        writeln!(wr, "            }})")?;
-        writeln!(wr, "        }}")?;
+        writeln!(wr, "        }})")?;
         writeln!(wr, "    }}")?;
         // Write builder (constructs shaders and then calls the constructor)
         writeln!(
@@ -147,7 +146,7 @@ impl<'s> WrappedProgram<'s> {
                     wr,
                     "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name}) {{",
                     uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.cgmath_name()
+                    type_name = ty.rust_value_type()
                 )?;
 
                 writeln!(
@@ -164,7 +163,7 @@ impl<'s> WrappedProgram<'s> {
                         wr,
                         "    pub fn get_{uniform_sc_name}_binding(&self) -> {type_name} {{",
                         uniform_sc_name = uniform.name.to_snake_case(),
-                        type_name = ty.rstype()
+                        type_name = ty.rust_value_type(),
                     )?;
 
                     writeln!(wr, "        {}", binding)?;

@@ -10,6 +10,7 @@ use heck::SnakeCase;
 
 use super::{WrappedItem, WrappedProgram};
 use crate::reflect::FoundUniform;
+use crate::types::prelude::*;
 
 pub struct WrappedUniformSet<'p, 's> {
     /// Identifier for this uniform set
@@ -85,7 +86,7 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
                     wr,
                     "    fn get_{uniform_sc_name}_binding(&self) -> {type_name};",
                     uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.rstype()
+                    type_name = ty.rust_value_type()
                 )?;
             }
 
@@ -93,7 +94,7 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
                 wr,
                 "    fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name});",
                 uniform_sc_name = uniform.name.to_snake_case(),
-                type_name = ty.cgmath_name()
+                type_name = ty.rust_value_type()
             )?;
         }
         writeln!(wr, "}}")?;
@@ -115,7 +116,7 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
                         wr,
                         "    fn get_{uniform_sc_name}_binding(&self) -> {type_name} {{",
                         uniform_sc_name = uniform.name.to_snake_case(),
-                        type_name = ty.rstype()
+                        type_name = ty.rust_value_type()
                     )?;
                     writeln!(
                         wr,
@@ -130,7 +131,7 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
                     wr,
                     "    fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name}) {{",
                     uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.cgmath_name()
+                    type_name = ty.rust_value_type()
                 )?;
                 writeln!(
                     wr,

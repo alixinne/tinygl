@@ -10,6 +10,7 @@ use rspirv::dr as rr;
 
 use super::{TargetType, WrappedItem};
 use crate::shader_kind::ShaderKindInfo;
+use crate::types::prelude::*;
 
 pub struct WrappedShader {
     shader: String,
@@ -264,7 +265,7 @@ impl WrappedShader {
                     wr,
                     "    pub fn get_{uniform_sc_name}_binding(&self) -> {type_name} {{",
                     uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.rstype()
+                    type_name = ty.rust_value_type(),
                 )?;
                 writeln!(wr, "        {}", binding)?;
                 writeln!(wr, "    }}")?;
@@ -274,16 +275,18 @@ impl WrappedShader {
                 wr,
                 "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name}) {{",
                 uniform_sc_name = uniform.name.to_snake_case(),
-                type_name = ty.cgmath_name()
+                type_name = ty.rust_value_type(),
             )?;
 
             writeln!(wr, "        use ::tinygl::HasContext;")?;
 
-            writeln!(wr, "        unsafe {{ gl.uniform_{components}_{rstype}_slice(self.{location}.as_ref(), {what}) }};",
-                components = ty.components(),
-                rstype = ty.rstype(),
+            writeln!(
+                wr,
+                "        unsafe {{ gl.uniform_{prefix}_slice(self.{location}.as_ref(), {what}) }};",
+                prefix = ty.uniform_method_name(),
                 location = uniform.location_name(),
-                what = ty.glow_value("value"))?;
+                what = ty.glow_value("value")
+            )?;
 
             writeln!(wr, "    }}")?;
         }
