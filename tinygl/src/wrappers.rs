@@ -48,7 +48,9 @@ impl<T: GlDrop> GlHandle<T> {
 
 impl<T: GlDrop> Drop for GlHandle<T> {
     fn drop(&mut self) {
-        self.res.take().map(|mut res| res.drop(self.gl.as_ref()));
+        if let Some(mut res) = self.res.take() {
+            res.drop(self.gl.as_ref())
+        }
     }
 }
 
@@ -98,7 +100,9 @@ impl<'gl, T: GlDrop> GlRefHandle<'gl, T> {
 
 impl<'gl, T: GlDrop> Drop for GlRefHandle<'gl, T> {
     fn drop(&mut self) {
-        self.res.take().map(|mut res| res.drop(self.gl));
+        if let Some(mut res) = self.res.take() {
+            res.drop(self.gl)
+        }
     }
 }
 

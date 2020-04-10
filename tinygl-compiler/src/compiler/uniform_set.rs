@@ -64,7 +64,7 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
             .map(Clone::clone)
             .unwrap_or_else(HashSet::new);
         for others in uniform_sets.iter().skip(1) {
-            unified = HashSet::from_iter(others.intersection(&unified).map(|x| *x));
+            unified = HashSet::from_iter(others.intersection(&unified).copied());
         }
 
         // Turn it into a vec, sort by name

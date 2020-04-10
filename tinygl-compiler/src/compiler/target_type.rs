@@ -12,7 +12,7 @@ impl Default for TargetType {
 }
 
 impl TargetType {
-    pub fn is_source(&self) -> bool {
+    pub fn is_source(self) -> bool {
         match self {
             TargetType::Automatic => {
                 panic!("TargetType::Automatic cannot be classified as source or not")

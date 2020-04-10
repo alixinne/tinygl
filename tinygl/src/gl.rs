@@ -27,6 +27,12 @@ impl fmt::Display for GlError {
 impl std::error::Error for GlError {}
 
 pub trait CheckGlErrorExt {
+    /// Check the state of the last OpenGL operation
+    ///
+    /// # Safety
+    ///
+    /// This call returns the value of glGetLastError(), it is up to the library user to call this
+    /// at the right location.
     unsafe fn check_last_error(&self) -> Result<(), GlError>;
 }
 

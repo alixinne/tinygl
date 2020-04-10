@@ -36,7 +36,7 @@ impl fmt::Display for Error {
             Self::SpirVCrossError(error) => write!(f, "spirv_cross error: {:?}", error),
             Self::UnwrappedShader(name) => write!(f, "shader {} was not wrapped before building the program, call Compiler::wrap_shader first", name),
             Self::UnwrappedProgram(name) => write!(f, "program {} was not wrapped before building the uniform set, call Compiler::wrap_program first", name),
-            Self::WrappingShaderFailed { reason, shader: _ } => write!(f, "failed to wrap shader program: {}", reason)
+            Self::WrappingShaderFailed { reason, .. } => write!(f, "failed to wrap shader program: {}", reason)
         }
     }
 }

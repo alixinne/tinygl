@@ -64,7 +64,7 @@ impl WrappedShader {
             shader_struct_name,
             shader_variable_name,
             uniform_struct_name: (base_name.to_owned() + "_uniforms").to_camel_case(),
-            uniform_locations_name: (base_name.to_owned() + "_locations").to_snake_case(),
+            uniform_locations_name: (base_name + "_locations").to_snake_case(),
             binary_result,
             output_type,
             skip_spirv,
@@ -98,10 +98,14 @@ impl WrappedShader {
     pub fn reflect_uniforms(&mut self) -> Result<(), crate::Error> {
         // Extract uniform data
         let mut loader = rr::Loader::new();
-        rspirv::binary::parse_words(self.binary_result.as_binary(), &mut loader).expect(&format!(
-            "failed to parse binary module for {}",
-            self.source_path.to_string_lossy()
-        ));
+        rspirv::binary::parse_words(self.binary_result.as_binary(), &mut loader).unwrap_or_else(
+            |_| {
+                panic!(
+                    "failed to parse binary module for {}",
+                    self.source_path.to_string_lossy()
+                )
+            },
+        );
 
         self.uniforms =
             crate::reflect::find_uniforms(&self.source_path.to_string_lossy(), &loader.module())?;
@@ -225,10 +229,8 @@ impl WrappedShader {
             } else {
                 "_"
             })?;
-        if self.output_type.is_source() {
-            if !self.uniforms.is_empty() {
-                writeln!(wr, "        use ::tinygl::HasContext;")?;
-            }
+        if self.output_type.is_source() && !self.uniforms.is_empty() {
+            writeln!(wr, "        use ::tinygl::HasContext;")?;
         }
         writeln!(wr, "        Self {{")?;
 

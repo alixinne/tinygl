@@ -10,7 +10,7 @@ pub enum AtomType {
 }
 
 impl AtomType {
-    fn vec_name(&self) -> &'static str {
+    fn vec_name(self) -> &'static str {
         match self {
             Self::Int => "ivec",
             Self::Float => "vec",
@@ -20,7 +20,7 @@ impl AtomType {
         }
     }
 
-    fn cgmath_name(&self) -> &'static str {
+    fn cgmath_name(self) -> &'static str {
         match self {
             Self::Int => "i32",
             Self::Float => "f32",
@@ -50,7 +50,7 @@ pub enum VectorType {
 }
 
 impl VectorType {
-    pub fn cgmath_name(&self) -> String {
+    pub fn cgmath_name(self) -> String {
         // TODO: Use a formatter
         match self {
             Self::Scalar(atom_type) => atom_type.cgmath_name().to_owned(),
@@ -62,16 +62,16 @@ impl VectorType {
         }
     }
 
-    pub fn rstype(&self) -> &'static str {
+    pub fn rstype(self) -> &'static str {
         match self {
             Self::Scalar(atom_type) | Self::Vector(atom_type, _) => atom_type.cgmath_name(),
         }
     }
 
-    pub fn components(&self) -> u32 {
+    pub fn components(self) -> u32 {
         match self {
             Self::Scalar(_) => 1,
-            Self::Vector(_, components) => *components,
+            Self::Vector(_, components) => components,
         }
     }
 }
