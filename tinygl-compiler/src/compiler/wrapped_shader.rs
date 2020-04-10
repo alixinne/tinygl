@@ -22,10 +22,35 @@ pub struct WrappedShader {
     shader_variable_name: String,
     uniform_struct_name: String,
     uniform_locations_name: String,
+
+    binary_result: shaderc::CompilationArtifact,
+    output_type: TargetType,
+    skip_spirv: bool,
+}
+
+impl std::fmt::Debug for WrappedShader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WrappedShader")
+            .field("shader", &self.shader)
+            .field("rs_file_name", &self.rs_file_name)
+            .field("uniforms", &self.uniforms)
+            .field("kind", &self.kind)
+            .field("source_path", &self.source_path)
+            .field("output_type", &self.output_type)
+            .field("skip_spirv", &self.skip_spirv)
+            .finish()
+    }
 }
 
 impl WrappedShader {
-    pub fn new(shader: &str, kind: ShaderKindInfo, source_path: &Path) -> Self {
+    pub fn new(
+        shader: &str,
+        kind: ShaderKindInfo,
+        source_path: &Path,
+        binary_result: shaderc::CompilationArtifact,
+        output_type: TargetType,
+        skip_spirv: bool,
+    ) -> Self {
         let base_name = shader.replace(".", "_");
         let shader_struct_name = (base_name.to_owned() + "_shader").to_camel_case();
         let shader_variable_name = shader_struct_name.to_snake_case();
@@ -40,7 +65,14 @@ impl WrappedShader {
             shader_variable_name,
             uniform_struct_name: (base_name.to_owned() + "_uniforms").to_camel_case(),
             uniform_locations_name: (base_name.to_owned() + "_locations").to_snake_case(),
+            binary_result,
+            output_type,
+            skip_spirv,
         }
+    }
+
+    pub fn source_path(&self) -> &Path {
+        &self.source_path
     }
 
     pub fn uniforms(&self) -> &[crate::reflect::FoundUniform] {
@@ -63,10 +95,10 @@ impl WrappedShader {
         &self.uniform_locations_name
     }
 
-    pub fn reflect_uniforms(&mut self, result: &[u32]) -> Result<(), crate::Error> {
+    pub fn reflect_uniforms(&mut self) -> Result<(), crate::Error> {
         // Extract uniform data
         let mut loader = rr::Loader::new();
-        rspirv::binary::parse_words(result, &mut loader).expect(&format!(
+        rspirv::binary::parse_words(self.binary_result.as_binary(), &mut loader).expect(&format!(
             "failed to parse binary module for {}",
             self.source_path.to_string_lossy()
         ));
@@ -77,17 +109,11 @@ impl WrappedShader {
         Ok(())
     }
 
-    pub fn write_shader(
-        &self,
-        dest: impl AsRef<Path>,
-        binary_result: &shaderc::CompilationArtifact,
-        output_type: TargetType,
-        skip_spirv: bool,
-    ) -> crate::Result<String> {
+    fn write_shader(&self, dest: impl AsRef<Path>) -> crate::Result<String> {
         let shader_file_name = format!(
             "{}{}",
             self.shader,
-            if let TargetType::SpirV = output_type {
+            if let TargetType::SpirV = self.output_type {
                 ".spv"
             } else {
                 ""
@@ -97,17 +123,17 @@ impl WrappedShader {
         // Write binary to .spv/.glsl file
         let mut output = File::create(&Path::new(dest.as_ref()).join(&shader_file_name))?;
 
-        match output_type {
+        match self.output_type {
             TargetType::SpirV => {
                 // Just write spv file
-                output.write_all(binary_result.as_binary_u8())?;
+                output.write_all(self.binary_result.as_binary_u8())?;
             }
             TargetType::Glsl(version) => {
-                if skip_spirv {
+                if self.skip_spirv {
                     // We skipped SPIR-V generation so just fix invalid stuff for OpenGL ES targets
                     // WebGL is more sensitive to leftovers from includes and stuff
                     // TODO: This is an ugly hack, maybe forbid skip_spirv + ES 3.00?
-                    for l in binary_result.as_text().lines() {
+                    for l in self.binary_result.as_text().lines() {
                         if l.starts_with("#extension GL_GOOGLE_include_directive") {
                             continue;
                         } else if l.starts_with("#line") {
@@ -118,7 +144,8 @@ impl WrappedShader {
                     }
                 } else {
                     // Use spirv_cross to write valid code
-                    let module = spirv_cross::spirv::Module::from_words(binary_result.as_binary());
+                    let module =
+                        spirv_cross::spirv::Module::from_words(self.binary_result.as_binary());
                     let mut ast =
                         spirv_cross::spirv::Ast::<spirv_cross::glsl::Target>::parse(&module)?;
 
@@ -138,10 +165,9 @@ impl WrappedShader {
         Ok(shader_file_name)
     }
 
-    pub fn write_rust_wrapper(
+    fn write_rust_wrapper(
         &self,
         dest: impl AsRef<Path>,
-        output_type: TargetType,
         shader_file_name: &str,
     ) -> crate::Result<()> {
         // Write Rust interface code
@@ -165,7 +191,7 @@ impl WrappedShader {
         writeln!(
             wr,
             "        Ok(Self {{ name: <Self as {st}>::build(gl, ::tinygl::gl::{kind})? }})",
-            st = if output_type.is_source() {
+            st = if self.output_type.is_source() {
                 "::tinygl::wrappers::SourceShader"
             } else {
                 "::tinygl::wrappers::BinaryShader"
@@ -190,7 +216,7 @@ impl WrappedShader {
         writeln!(
             wr,
             "    pub fn new({prefix}gl: &::tinygl::Context, {prefix}program: <::tinygl::glow::Context as ::tinygl::glow::HasContext>::Program) -> Self {{",
-            prefix = if output_type.is_source() {
+            prefix = if self.output_type.is_source() {
                 if self.uniforms.is_empty() {
                     "_"
                 } else {
@@ -199,7 +225,7 @@ impl WrappedShader {
             } else {
                 "_"
             })?;
-        if output_type.is_source() {
+        if self.output_type.is_source() {
             if !self.uniforms.is_empty() {
                 writeln!(wr, "        use ::tinygl::HasContext;")?;
             }
@@ -207,7 +233,7 @@ impl WrappedShader {
         writeln!(wr, "        Self {{")?;
 
         for uniform in &self.uniforms {
-            if output_type.is_source() {
+            if self.output_type.is_source() {
                 // Source shader: find uniform locations from variable names
                 writeln!(wr, "            {name}: unsafe {{ gl.get_uniform_location(program, \"{uniform_name}\") }},",
                     name = uniform.location_name(),
@@ -290,7 +316,7 @@ impl WrappedShader {
         writeln!(wr, "}}")?;
 
         // Implement the right shader trait for the given output type
-        if output_type.is_source() {
+        if self.output_type.is_source() {
             writeln!(
                 wr,
                 "impl ::tinygl::wrappers::SourceShader<'static> for {} {{",
@@ -319,5 +345,46 @@ impl WrappedShader {
         writeln!(wr, "// {}", self.source_path.to_string_lossy())?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
+    }
+}
+
+pub struct WrappedShaderRef<'a> {
+    pub shader: &'a WrappedShader,
+}
+
+impl<'a> WrappedShaderRef<'a> {
+    pub fn new(shader: &'a WrappedShader) -> Self {
+        Self { shader }
+    }
+
+    pub fn write(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
+        self.shader
+            .write_rust_wrapper(&dest, &self.shader.write_shader(&dest)?)
+    }
+
+    pub fn into_id(self) -> PathBuf {
+        self.shader.source_path.to_owned()
+    }
+}
+
+pub trait WrappedShaderId {
+    fn id(&self) -> &Path;
+}
+
+impl WrappedShaderId for WrappedShader {
+    fn id(&self) -> &Path {
+        self.source_path()
+    }
+}
+
+impl WrappedShaderId for WrappedShaderRef<'_> {
+    fn id(&self) -> &Path {
+        self.shader.id()
+    }
+}
+
+impl WrappedShaderId for PathBuf {
+    fn id(&self) -> &Path {
+        &self
     }
 }

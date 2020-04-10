@@ -9,32 +9,28 @@ mod target_type;
 pub use target_type::TargetType;
 
 mod uniform_set;
-use uniform_set::*;
+pub use uniform_set::*;
 
 mod wrapped_shader;
-use wrapped_shader::*;
+pub use wrapped_shader::*;
 
 mod wrapped_program;
-use wrapped_program::*;
+pub use wrapped_program::*;
 
 #[derive(Default)]
 pub struct CompilerBuilder {
     skip_cargo: bool,
-    dest: Option<PathBuf>,
     skip_spirv: bool,
     output_type: TargetType,
 }
 
 impl CompilerBuilder {
-    pub fn skip_cargo(self, skip_cargo: bool) -> Self {
-        Self { skip_cargo, ..self }
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn dest(self, dest: impl Into<PathBuf>) -> Self {
-        Self {
-            dest: Some(dest.into()),
-            ..self
-        }
+    pub fn skip_cargo(self, skip_cargo: bool) -> Self {
+        Self { skip_cargo, ..self }
     }
 
     pub fn skip_spirv(self, skip_spirv: bool) -> Self {
@@ -48,16 +44,11 @@ impl CompilerBuilder {
         }
     }
 
-    pub fn build(mut self) -> Result<Compiler> {
+    pub fn build(self) -> Result<Compiler> {
         // Are we building for WASM?
         let is_wasm = std::env::var("TARGET")
             .map(|v| v.starts_with("wasm32"))
             .unwrap_or(false);
-
-        // Default path to OUT_DIR
-        if self.dest.is_none() {
-            self.dest = std::env::var("OUT_DIR").map(PathBuf::from).ok();
-        }
 
         // If building for WASM, force source usage unless a specific version is required
         let output_type = match self.output_type {
@@ -104,9 +95,6 @@ impl CompilerBuilder {
             wrapped_shaders: HashMap::new(),
             wrapped_programs: HashMap::new(),
             wrapped_uniform_sets: HashMap::new(),
-            dest: self.dest.expect(
-                "dest was not specified for the compiler and the OUT_DIR variable was not defined",
-            ),
             skip_spirv: self.skip_spirv,
             output_type,
         })
@@ -119,38 +107,23 @@ pub struct Compiler {
     wrapped_programs: HashMap<String, WrappedProgram>,
     wrapped_uniform_sets: HashMap<String, WrappedUniformSet>,
     skip_cargo: bool,
-    dest: PathBuf,
     skip_spirv: bool,
     output_type: TargetType,
 }
 
 impl Compiler {
-    pub fn wrap_shader(&mut self, source_path: impl AsRef<Path>) -> Result<()> {
-        // Get full path to shader
-        let source_path = std::fs::canonicalize(source_path)?;
-
-        // Shader name
-        let shader = source_path
-            .file_name()
-            .expect("source shader is not a file")
-            .to_string_lossy()
-            .to_owned();
-
-        if !self.skip_cargo {
-            // Notify cargo to rerun if the source changes
-            println!("cargo:rerun-if-changed={}", source_path.display());
-        }
-
-        // Read GLSL source
-        let source = std::fs::read_to_string(&source_path).unwrap();
-
-        // Match shader type
-        let kind = ShaderKindInfo::from_path(&source_path)
-            .expect("no file extension on path, cannot determine shader type");
-
+    fn wrap_shader_id(
+        &mut self,
+        source: &str,
+        source_path: impl AsRef<Path>,
+        kind: ShaderKindInfo,
+    ) -> Result<WrappedShaderRef<'_>> {
         let wrapped_shader_entry = {
             // Set callback
             let mut options = shaderc::CompileOptions::new().unwrap();
+
+            // Shader name
+            let shader = source_path.as_ref().to_string_lossy();
 
             // Add definitions
             // TODO: Let use configure options?
@@ -185,18 +158,14 @@ impl Compiler {
 
             let compiler_result = if self.skip_spirv {
                 // Only assemble source if we're skipping SPIR-V
-                self.compiler.preprocess(
-                    &source,
-                    &source_path.to_string_lossy(),
-                    "main",
-                    Some(&options),
-                )
+                self.compiler
+                    .preprocess(&source, &shader, "main", Some(&options))
             } else {
                 // Compile into SPIR-V
                 self.compiler.compile_into_spirv(
                     &source,
                     kind.shaderc_kind,
-                    &source_path.to_string_lossy(),
+                    &shader,
                     "main",
                     Some(&options),
                 )
@@ -211,26 +180,27 @@ impl Compiler {
                     }
 
                     // Base name to identify this shader
-                    let mut wrapped_shader = WrappedShader::new(&shader, kind, &source_path);
-
-                    // Write the shader binary before the rest of the parsing, for debugging
-                    let shader_file_name = wrapped_shader.write_shader(
-                        &self.dest,
-                        &binary_result,
+                    let mut wrapped_shader = WrappedShader::new(
+                        &shader,
+                        kind,
+                        &source_path.as_ref(),
+                        binary_result,
                         self.output_type,
                         self.skip_spirv,
-                    )?;
+                    );
 
                     // Extract uniforms from SPIR-V representation
                     if !self.skip_spirv {
-                        wrapped_shader.reflect_uniforms(binary_result.as_binary())?;
+                        match wrapped_shader.reflect_uniforms() {
+                            Ok(_) => {}
+                            Err(err) => {
+                                return Err(crate::Error::WrappingShaderFailed {
+                                    reason: Box::new(err),
+                                    shader: wrapped_shader,
+                                })
+                            }
+                        }
                     }
-
-                    wrapped_shader.write_rust_wrapper(
-                        &self.dest,
-                        self.output_type,
-                        &shader_file_name,
-                    )?;
 
                     Ok(wrapped_shader)
                 }
@@ -248,30 +218,76 @@ impl Compiler {
         match wrapped_shader_entry {
             Ok(wrapped_shader) => {
                 // Add to list of files to include
-                self.wrapped_shaders.insert(source_path, wrapped_shader);
-                Ok(())
+                self.wrapped_shaders
+                    .insert(source_path.as_ref().to_owned(), wrapped_shader);
+                Ok(WrappedShaderRef::new(
+                    self.wrapped_shaders.get(source_path.as_ref()).unwrap(),
+                ))
             }
-            Err(error) => Err(error),
+            Err(err) => Err(err),
         }
     }
 
-    pub fn wrap_program(&mut self, attached_shaders: &[&str], program_name: &str) -> Result<()> {
+    pub fn wrap_shader_source(
+        &mut self,
+        source: &str,
+        kind: shaderc::ShaderKind,
+    ) -> Result<WrappedShaderRef<'_>> {
+        use sha2::Digest;
+
+        let kind: ShaderKindInfo = kind.into();
+
+        let mut source_path = base64::encode(sha2::Sha256::digest(source.as_bytes()));
+        source_path.push('.');
+        source_path.push_str(kind.extension);
+
+        self.wrap_shader_id(source, source_path, kind)
+    }
+
+    pub fn wrap_shader(&mut self, source_path: impl AsRef<Path>) -> Result<WrappedShaderRef<'_>> {
+        // Get full path to shader
+        let source_path = std::fs::canonicalize(source_path)?;
+
+        if !self.skip_cargo {
+            // Notify cargo to rerun if the source changes
+            println!("cargo:rerun-if-changed={}", source_path.display());
+        }
+
+        // Read GLSL source
+        let source = std::fs::read_to_string(&source_path).unwrap();
+
+        // Match shader type
+        let kind = ShaderKindInfo::from_path(&source_path)
+            .expect("no file extension on path, cannot determine shader type");
+
+        self.wrap_shader_id(&source, source_path, kind)
+    }
+
+    pub fn wrap_program(
+        &mut self,
+        attached_shaders: &[&dyn WrappedShaderId],
+        program_name: &str,
+    ) -> Result<WrappedProgramRef<'_>> {
         let wrapped_program = WrappedProgram::new(&program_name, attached_shaders);
 
         // Resolve uniforms
         let uniform_data = wrapped_program.resolve_shaders(&self.wrapped_shaders)?;
 
-        // Write Rust wrapper for program
-        wrapped_program.write_rust_wrapper(&self.dest, uniform_data)?;
-
         // Add to list of wrapped programs
-        self.wrapped_programs
-            .insert(wrapped_program.id().to_owned(), wrapped_program);
+        let id = wrapped_program.id().to_owned();
+        self.wrapped_programs.insert(id.clone(), wrapped_program);
 
-        Ok(())
+        Ok(WrappedProgramRef::new(
+            self.wrapped_programs.get(&id).unwrap(),
+            uniform_data,
+        ))
     }
 
-    pub fn wrap_uniforms(&mut self, programs: &[&str], set_name: &str) -> Result<()> {
+    pub fn wrap_uniforms(
+        &mut self,
+        programs: &[&dyn WrappedProgramId],
+        set_name: &str,
+    ) -> Result<WrappedUniformSetRef<'_>> {
         let uniform_set = WrappedUniformSet::new(&set_name);
 
         // Resolve programs
@@ -281,33 +297,33 @@ impl Compiler {
             &self.wrapped_shaders,
         )?;
 
-        // Prepare Rust wrapper
-        uniform_set.write_rust_wrapper(&self.dest, uniform_data)?;
-
         // Add to list of wrapped sets
-        self.wrapped_uniform_sets
-            .insert(uniform_set.id().to_owned(), uniform_set);
+        let id = uniform_set.id().to_owned();
+        self.wrapped_uniform_sets.insert(id.clone(), uniform_set);
 
-        Ok(())
+        Ok(WrappedUniformSetRef::new(
+            self.wrapped_uniform_sets.get(&id).unwrap(),
+            uniform_data,
+        ))
     }
 
-    pub fn write_root_include(&self) -> Result<()> {
+    pub fn write_root_include(&self, dest: impl AsRef<Path>) -> Result<()> {
         // Write master shaders.rs file
-        let output_rs = File::create(&self.dest.join("shaders.rs"))?;
+        let output_rs = File::create(dest.as_ref().join("shaders.rs"))?;
         let mut wr = BufWriter::new(output_rs);
 
         // Include shaders
-        for (_source_path, shader) in &self.wrapped_shaders {
+        for (_source_path, shader) in self.wrapped_shaders.iter() {
             shader.write_root_include(&mut wr)?;
         }
 
         // Include programs
-        for (_program_name, program) in &self.wrapped_programs {
+        for (_program_name, program) in self.wrapped_programs.iter() {
             program.write_root_include(&mut wr)?;
         }
 
         // Write program wrappers
-        for (_uniform_set_name, uniform_set) in &self.wrapped_uniform_sets {
+        for (_uniform_set_name, uniform_set) in self.wrapped_uniform_sets.iter() {
             uniform_set.write_root_include(&mut wr)?;
         }
 

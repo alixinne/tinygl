@@ -6,3 +6,4 @@ mod types;
 
 pub use compiler::{Compiler, CompilerBuilder, TargetType};
 pub use errors::*;
+pub use shaderc::ShaderKind;

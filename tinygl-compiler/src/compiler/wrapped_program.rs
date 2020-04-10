@@ -7,13 +7,13 @@ use std::path::{Path, PathBuf};
 use heck::CamelCase;
 use heck::SnakeCase;
 
-use super::wrapped_shader::WrappedShader;
+use super::wrapped_shader::*;
 
 pub struct WrappedProgram {
     id: String,
     struct_name: String,
     rs_file_name: String,
-    attached_shaders: Vec<String>,
+    attached_shaders: Vec<PathBuf>,
 }
 
 pub struct WrappedProgramUniforms<'a> {
@@ -22,7 +22,7 @@ pub struct WrappedProgramUniforms<'a> {
 }
 
 impl WrappedProgram {
-    pub fn new(program_name: &str, attached_shaders: &[&str]) -> Self {
+    pub fn new(program_name: &str, attached_shaders: &[&dyn WrappedShaderId]) -> Self {
         let id = program_name.to_snake_case();
         let struct_name = program_name.to_camel_case() + "Program";
         let rs_file_name = struct_name.to_snake_case() + ".rs";
@@ -31,12 +31,11 @@ impl WrappedProgram {
             id,
             struct_name,
             rs_file_name,
-            attached_shaders: attached_shaders.iter().map(|n| (*n).to_owned()).collect(),
+            attached_shaders: attached_shaders
+                .iter()
+                .map(|n| (*n).id().to_owned())
+                .collect(),
         }
-    }
-
-    pub fn id(&self) -> &str {
-        &self.id
     }
 
     pub fn struct_name(&self) -> &str {
@@ -52,12 +51,18 @@ impl WrappedProgram {
             .attached_shaders
             .iter()
             .map(|name| {
-                std::fs::canonicalize(name)
+                std::fs::canonicalize(name.id())
                     .map_err(|err| err.into())
                     .and_then(|path| {
-                        wrapped_shaders
-                            .get(&path)
-                            .ok_or_else(|| crate::Error::UnwrappedShader((*name).to_owned()))
+                        wrapped_shaders.get(&path).ok_or_else(|| {
+                            crate::Error::UnwrappedShader((*name).id().to_string_lossy().into())
+                        })
+                    })
+                    .or_else(|_| {
+                        // Canonicalize failed, try original?
+                        wrapped_shaders.get(name.id()).ok_or_else(|| {
+                            crate::Error::UnwrappedShader((*name).id().to_string_lossy().into())
+                        })
                     })
             })
             .collect();
@@ -76,10 +81,10 @@ impl WrappedProgram {
         })
     }
 
-    pub fn write_rust_wrapper(
+    fn write_rust_wrapper(
         &self,
         dest: impl AsRef<Path>,
-        attached_shaders: WrappedProgramUniforms<'_>,
+        attached_shaders: &WrappedProgramUniforms<'_>,
     ) -> crate::Result<()> {
         // Write Rust program code
         let output_rs = File::create(&Path::new(dest.as_ref()).join(&self.rs_file_name))?;
@@ -245,5 +250,50 @@ impl WrappedProgram {
         writeln!(wr, "// {}", self.id)?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
+    }
+}
+
+pub struct WrappedProgramRef<'a> {
+    pub program: &'a WrappedProgram,
+    attached_shaders: WrappedProgramUniforms<'a>,
+}
+
+impl<'a> WrappedProgramRef<'a> {
+    pub fn new(program: &'a WrappedProgram, attached_shaders: WrappedProgramUniforms<'a>) -> Self {
+        Self {
+            program,
+            attached_shaders,
+        }
+    }
+
+    pub fn write(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
+        self.program
+            .write_rust_wrapper(dest, &self.attached_shaders)
+    }
+
+    pub fn into_id(self) -> String {
+        self.program.id.clone()
+    }
+}
+
+pub trait WrappedProgramId {
+    fn id(&self) -> &str;
+}
+
+impl WrappedProgramId for WrappedProgram {
+    fn id(&self) -> &str {
+        &self.id
+    }
+}
+
+impl WrappedProgramId for WrappedProgramRef<'_> {
+    fn id(&self) -> &str {
+        self.program.id()
+    }
+}
+
+impl WrappedProgramId for String {
+    fn id(&self) -> &str {
+        &self
     }
 }

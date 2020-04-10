@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use heck::CamelCase;
 use heck::SnakeCase;
 
-use super::{WrappedProgram, WrappedProgramUniforms, WrappedShader};
+use super::{WrappedProgram, WrappedProgramId, WrappedProgramUniforms, WrappedShader};
 use crate::reflect::FoundUniform;
 
 pub struct WrappedUniformSet {
@@ -46,15 +46,15 @@ impl WrappedUniformSet {
 
     pub fn resolve_programs<'a>(
         &self,
-        programs: &[&str],
+        programs: &[&dyn WrappedProgramId],
         wrapped_programs: &'a HashMap<String, WrappedProgram>,
         wrapped_shaders: &'a HashMap<PathBuf, WrappedShader>,
     ) -> crate::Result<ResolvedUniformSet<'a>> {
         // Resolve programs
         let wrapped_programs: std::result::Result<Vec<_>, _> = programs
             .iter()
-            .map(|name| {
-                let name = name.to_snake_case();
+            .map(|program| {
+                let name = program.id().to_snake_case();
                 wrapped_programs
                     .get(&name)
                     .ok_or_else(|| crate::Error::UnwrappedProgram((*name).to_owned()))
@@ -76,10 +76,10 @@ impl WrappedUniformSet {
         Ok(ResolvedUniformSet(wrapped_uniforms?))
     }
 
-    pub fn write_rust_wrapper(
+    fn write_rust_wrapper(
         &self,
         dest: impl AsRef<Path>,
-        programs: ResolvedUniformSet<'_>,
+        programs: &ResolvedUniformSet<'_>,
     ) -> crate::Result<()> {
         // Write Rust program code
         let output_rs = File::create(&Path::new(dest.as_ref()).join(&self.rs_file_name))?;
@@ -193,5 +193,20 @@ impl WrappedUniformSet {
         writeln!(wr, "// {}", self.id)?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
+    }
+}
+
+pub struct WrappedUniformSetRef<'a> {
+    pub set: &'a WrappedUniformSet,
+    uniform_data: ResolvedUniformSet<'a>,
+}
+
+impl<'a> WrappedUniformSetRef<'a> {
+    pub fn new(set: &'a WrappedUniformSet, uniform_data: ResolvedUniformSet<'a>) -> Self {
+        Self { set, uniform_data }
+    }
+
+    pub fn write(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
+        self.set.write_rust_wrapper(dest, &self.uniform_data)
     }
 }
