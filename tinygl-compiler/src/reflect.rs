@@ -132,7 +132,7 @@ pub fn find_uniforms(
                     panic!("failed to get type_id");
                 }
             }
-            spirv_headers::Op::TypeSampledImage => {
+            spirv_headers::Op::TypeSampledImage | spirv_headers::Op::TypeImage => {
                 // TODO: Store texture details in reflection data?
                 // TODO: Store binding details
                 types.insert(id, ItemOrArrayType::atom(AtomType::UInt));
