@@ -113,9 +113,6 @@ impl Compiler {
         // Set callback
         let mut options = shaderc::CompileOptions::new().unwrap();
 
-        // Shader name
-        let shader = source_path.as_ref().to_string_lossy();
-
         // Add definitions
         // TODO: Let use configure options?
         options.add_macro_definition("TINYGL", Some(env!("CARGO_PKG_VERSION_MAJOR")));
@@ -149,14 +146,18 @@ impl Compiler {
 
         let compiler_result = if self.skip_spirv {
             // Only assemble source if we're skipping SPIR-V
-            self.compiler
-                .preprocess(&source, &shader, "main", Some(&options))
+            self.compiler.preprocess(
+                &source,
+                &source_path.as_ref().to_string_lossy(),
+                "main",
+                Some(&options),
+            )
         } else {
             // Compile into SPIR-V
             self.compiler.compile_into_spirv(
                 &source,
                 kind.shaderc_kind,
-                &shader,
+                &source_path.as_ref().to_string_lossy(),
                 "main",
                 Some(&options),
             )
@@ -172,7 +173,6 @@ impl Compiler {
 
                 // Base name to identify this shader
                 let mut wrapped_shader = WrappedShader::new(
-                    &shader,
                     kind,
                     &source_path.as_ref(),
                     binary_result,
@@ -224,15 +224,15 @@ impl Compiler {
 
     pub fn wrap_shader(&mut self, source_path: impl AsRef<Path>) -> Result<WrappedShader> {
         // Get full path to shader
-        let source_path = std::fs::canonicalize(source_path)?;
+        let full_path = std::fs::canonicalize(&source_path)?;
 
         if !self.skip_cargo {
             // Notify cargo to rerun if the source changes
-            println!("cargo:rerun-if-changed={}", source_path.display());
+            println!("cargo:rerun-if-changed={}", full_path.display());
         }
 
         // Read GLSL source
-        let source = std::fs::read_to_string(&source_path).unwrap();
+        let source = std::fs::read_to_string(&full_path).unwrap();
 
         // Match shader type
         let kind = ShaderKindInfo::from_path(&source_path)

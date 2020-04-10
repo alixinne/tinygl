@@ -44,19 +44,20 @@ impl std::fmt::Debug for WrappedShader {
 
 impl WrappedShader {
     pub fn new(
-        shader: &str,
         kind: ShaderKindInfo,
         source_path: &Path,
         binary_result: shaderc::CompilationArtifact,
         output_type: TargetType,
         skip_spirv: bool,
     ) -> Self {
+        let shader: String = source_path.file_name().unwrap().to_string_lossy().into();
+
         let base_name = shader.replace(".", "_");
         let shader_struct_name = (base_name.to_owned() + "_shader").to_camel_case();
         let shader_variable_name = shader_struct_name.to_snake_case();
 
         Self {
-            shader: shader.to_owned(),
+            shader,
             rs_file_name: base_name.to_owned() + ".rs",
             uniforms: Vec::new(),
             kind,
