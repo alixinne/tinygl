@@ -4,6 +4,6 @@ mod reflect;
 mod shader_kind;
 mod types;
 
-pub use compiler::{Compiler, CompilerBuilder, TargetType};
+pub use compiler::*;
 pub use errors::*;
 pub use shaderc::ShaderKind;

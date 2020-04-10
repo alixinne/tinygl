@@ -8,7 +8,7 @@ use heck::SnakeCase;
 
 use rspirv::dr as rr;
 
-use super::TargetType;
+use super::{TargetType, WrappedItem};
 use crate::shader_kind::ShaderKindInfo;
 
 pub struct WrappedShader {
@@ -340,51 +340,16 @@ impl WrappedShader {
 
         Ok(())
     }
+}
 
-    pub fn write_root_include(&self, mut wr: impl Write) -> std::io::Result<()> {
+impl WrappedItem for WrappedShader {
+    fn write(&self, dest: &Path) -> Result<(), crate::Error> {
+        self.write_rust_wrapper(dest, &self.write_shader(dest)?)
+    }
+
+    fn write_root_include(&self, wr: &mut dyn Write) -> Result<(), crate::Error> {
         writeln!(wr, "// {}", self.source_path.to_string_lossy())?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
-    }
-}
-
-pub struct WrappedShaderRef<'a> {
-    pub shader: &'a WrappedShader,
-}
-
-impl<'a> WrappedShaderRef<'a> {
-    pub fn new(shader: &'a WrappedShader) -> Self {
-        Self { shader }
-    }
-
-    pub fn write(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
-        self.shader
-            .write_rust_wrapper(&dest, &self.shader.write_shader(&dest)?)
-    }
-
-    pub fn into_id(self) -> PathBuf {
-        self.shader.source_path.to_owned()
-    }
-}
-
-pub trait WrappedShaderId {
-    fn id(&self) -> &Path;
-}
-
-impl WrappedShaderId for WrappedShader {
-    fn id(&self) -> &Path {
-        self.source_path()
-    }
-}
-
-impl WrappedShaderId for WrappedShaderRef<'_> {
-    fn id(&self) -> &Path {
-        self.shader.id()
-    }
-}
-
-impl WrappedShaderId for PathBuf {
-    fn id(&self) -> &Path {
-        &self
     }
 }

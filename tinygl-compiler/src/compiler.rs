@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufWriter;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::{shader_kind::ShaderKindInfo, Error, Result};
 
@@ -10,6 +9,9 @@ pub use target_type::TargetType;
 
 mod uniform_set;
 pub use uniform_set::*;
+
+mod wrapped_item;
+pub use wrapped_item::*;
 
 mod wrapped_shader;
 pub use wrapped_shader::*;
@@ -92,9 +94,6 @@ impl CompilerBuilder {
         Ok(Compiler {
             compiler: shaderc::Compiler::new().unwrap(),
             skip_cargo: self.skip_cargo,
-            wrapped_shaders: HashMap::new(),
-            wrapped_programs: HashMap::new(),
-            wrapped_uniform_sets: HashMap::new(),
             skip_spirv: self.skip_spirv,
             output_type,
         })
@@ -103,9 +102,6 @@ impl CompilerBuilder {
 
 pub struct Compiler {
     compiler: shaderc::Compiler,
-    wrapped_shaders: HashMap<PathBuf, WrappedShader>,
-    wrapped_programs: HashMap<String, WrappedProgram>,
-    wrapped_uniform_sets: HashMap<String, WrappedUniformSet>,
     skip_cargo: bool,
     skip_spirv: bool,
     output_type: TargetType,
@@ -117,7 +113,7 @@ impl Compiler {
         source: &str,
         source_path: impl AsRef<Path>,
         kind: ShaderKindInfo,
-    ) -> Result<WrappedShaderRef<'_>> {
+    ) -> Result<WrappedShader> {
         let wrapped_shader_entry = {
             // Set callback
             let mut options = shaderc::CompileOptions::new().unwrap();
@@ -215,24 +211,14 @@ impl Compiler {
             }
         };
 
-        match wrapped_shader_entry {
-            Ok(wrapped_shader) => {
-                // Add to list of files to include
-                self.wrapped_shaders
-                    .insert(source_path.as_ref().to_owned(), wrapped_shader);
-                Ok(WrappedShaderRef::new(
-                    self.wrapped_shaders.get(source_path.as_ref()).unwrap(),
-                ))
-            }
-            Err(err) => Err(err),
-        }
+        wrapped_shader_entry
     }
 
     pub fn wrap_shader_source(
         &mut self,
         source: &str,
         kind: shaderc::ShaderKind,
-    ) -> Result<WrappedShaderRef<'_>> {
+    ) -> Result<WrappedShader> {
         use sha2::Digest;
 
         let kind: ShaderKindInfo = kind.into();
@@ -244,7 +230,7 @@ impl Compiler {
         self.wrap_shader_id(source, source_path, kind)
     }
 
-    pub fn wrap_shader(&mut self, source_path: impl AsRef<Path>) -> Result<WrappedShaderRef<'_>> {
+    pub fn wrap_shader(&mut self, source_path: impl AsRef<Path>) -> Result<WrappedShader> {
         // Get full path to shader
         let source_path = std::fs::canonicalize(source_path)?;
 
@@ -263,68 +249,33 @@ impl Compiler {
         self.wrap_shader_id(&source, source_path, kind)
     }
 
-    pub fn wrap_program(
+    pub fn wrap_program<'s>(
         &mut self,
-        attached_shaders: &[&dyn WrappedShaderId],
+        attached_shaders: &[&'s WrappedShader],
         program_name: &str,
-    ) -> Result<WrappedProgramRef<'_>> {
-        let wrapped_program = WrappedProgram::new(&program_name, attached_shaders);
-
-        // Resolve uniforms
-        let uniform_data = wrapped_program.resolve_shaders(&self.wrapped_shaders)?;
-
-        // Add to list of wrapped programs
-        let id = wrapped_program.id().to_owned();
-        self.wrapped_programs.insert(id.clone(), wrapped_program);
-
-        Ok(WrappedProgramRef::new(
-            self.wrapped_programs.get(&id).unwrap(),
-            uniform_data,
-        ))
+    ) -> Result<WrappedProgram<'s>> {
+        Ok(WrappedProgram::new(&program_name, attached_shaders))
     }
 
-    pub fn wrap_uniforms(
+    pub fn wrap_uniforms<'p, 's>(
         &mut self,
-        programs: &[&dyn WrappedProgramId],
+        programs: &[&'p WrappedProgram<'s>],
         set_name: &str,
-    ) -> Result<WrappedUniformSetRef<'_>> {
-        let uniform_set = WrappedUniformSet::new(&set_name);
-
-        // Resolve programs
-        let uniform_data = uniform_set.resolve_programs(
-            programs,
-            &self.wrapped_programs,
-            &self.wrapped_shaders,
-        )?;
-
-        // Add to list of wrapped sets
-        let id = uniform_set.id().to_owned();
-        self.wrapped_uniform_sets.insert(id.clone(), uniform_set);
-
-        Ok(WrappedUniformSetRef::new(
-            self.wrapped_uniform_sets.get(&id).unwrap(),
-            uniform_data,
-        ))
+    ) -> Result<WrappedUniformSet<'p, 's>> {
+        Ok(WrappedUniformSet::new(programs, set_name))
     }
 
-    pub fn write_root_include(&self, dest: impl AsRef<Path>) -> Result<()> {
+    pub fn write_root_include<'a>(
+        &self,
+        dest: impl AsRef<Path>,
+        items: &[&'a dyn WrappedItem],
+    ) -> Result<()> {
         // Write master shaders.rs file
         let output_rs = File::create(dest.as_ref().join("shaders.rs"))?;
         let mut wr = BufWriter::new(output_rs);
 
-        // Include shaders
-        for (_source_path, shader) in self.wrapped_shaders.iter() {
-            shader.write_root_include(&mut wr)?;
-        }
-
-        // Include programs
-        for (_program_name, program) in self.wrapped_programs.iter() {
-            program.write_root_include(&mut wr)?;
-        }
-
-        // Write program wrappers
-        for (_uniform_set_name, uniform_set) in self.wrapped_uniform_sets.iter() {
-            uniform_set.write_root_include(&mut wr)?;
+        for item in items {
+            item.write_root_include(&mut wr)?;
         }
 
         Ok(())

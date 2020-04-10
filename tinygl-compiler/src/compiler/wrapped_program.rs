@@ -1,28 +1,23 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use heck::CamelCase;
 use heck::SnakeCase;
 
 use super::wrapped_shader::*;
+use super::WrappedItem;
 
-pub struct WrappedProgram {
+pub struct WrappedProgram<'s> {
     id: String,
     struct_name: String,
     rs_file_name: String,
-    attached_shaders: Vec<PathBuf>,
+    attached_shaders: Vec<&'s WrappedShader>,
 }
 
-pub struct WrappedProgramUniforms<'a> {
-    pub shaders: Vec<&'a WrappedShader>,
-    pub shaders_with_uniforms: Vec<&'a WrappedShader>,
-}
-
-impl WrappedProgram {
-    pub fn new(program_name: &str, attached_shaders: &[&dyn WrappedShaderId]) -> Self {
+impl<'s> WrappedProgram<'s> {
+    pub fn new(program_name: &str, attached_shaders: &[&'s WrappedShader]) -> Self {
         let id = program_name.to_snake_case();
         let struct_name = program_name.to_camel_case() + "Program";
         let rs_file_name = struct_name.to_snake_case() + ".rs";
@@ -31,10 +26,7 @@ impl WrappedProgram {
             id,
             struct_name,
             rs_file_name,
-            attached_shaders: attached_shaders
-                .iter()
-                .map(|n| (*n).id().to_owned())
-                .collect(),
+            attached_shaders: attached_shaders.to_vec(),
         }
     }
 
@@ -42,50 +34,17 @@ impl WrappedProgram {
         &self.struct_name
     }
 
-    pub fn resolve_shaders<'a>(
-        &self,
-        wrapped_shaders: &'a HashMap<PathBuf, WrappedShader>,
-    ) -> crate::Result<WrappedProgramUniforms<'a>> {
-        // Find wrapped shader details
-        let shaders: std::result::Result<Vec<_>, _> = self
-            .attached_shaders
-            .iter()
-            .map(|name| {
-                std::fs::canonicalize(name.id())
-                    .map_err(|err| err.into())
-                    .and_then(|path| {
-                        wrapped_shaders.get(&path).ok_or_else(|| {
-                            crate::Error::UnwrappedShader((*name).id().to_string_lossy().into())
-                        })
-                    })
-                    .or_else(|_| {
-                        // Canonicalize failed, try original?
-                        wrapped_shaders.get(name.id()).ok_or_else(|| {
-                            crate::Error::UnwrappedShader((*name).id().to_string_lossy().into())
-                        })
-                    })
-            })
-            .collect();
-
-        // Unwrap to propagate errors
-        let shaders = shaders?;
-        let shaders_with_uniforms: Vec<_> = shaders
-            .iter()
-            .filter(|s| !s.uniforms().is_empty())
-            .map(|s| *s)
-            .collect();
-
-        Ok(WrappedProgramUniforms {
-            shaders,
-            shaders_with_uniforms,
-        })
+    pub fn shaders(&self) -> impl Iterator<Item = &&'s WrappedShader> {
+        self.attached_shaders.iter()
     }
 
-    fn write_rust_wrapper(
-        &self,
-        dest: impl AsRef<Path>,
-        attached_shaders: &WrappedProgramUniforms<'_>,
-    ) -> crate::Result<()> {
+    pub fn shaders_with_uniforms(&self) -> impl Iterator<Item = &&'s WrappedShader> {
+        self.attached_shaders
+            .iter()
+            .filter(|s| !s.uniforms().is_empty())
+    }
+
+    fn write_rust_wrapper(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
         // Write Rust program code
         let output_rs = File::create(&Path::new(dest.as_ref()).join(&self.rs_file_name))?;
         let mut wr = BufWriter::new(output_rs);
@@ -97,7 +56,7 @@ impl WrappedProgram {
             "    name: <::tinygl::glow::Context as ::tinygl::HasContext>::Program,"
         )?;
         // Write uniform handles
-        for shader in &attached_shaders.shaders_with_uniforms {
+        for shader in self.shaders_with_uniforms() {
             writeln!(
                 wr,
                 "    {}: {},",
@@ -111,7 +70,7 @@ impl WrappedProgram {
         // Constructor function
         writeln!(wr, "    pub fn new(gl: &::tinygl::Context,")?;
         // Add shader parameters
-        for shader in &attached_shaders.shaders {
+        for shader in self.shaders() {
             writeln!(
                 wr,
                 "               {param_name}: &{param_type},",
@@ -126,14 +85,14 @@ impl WrappedProgram {
             wr,
             "        let program_name = ::tinygl::wrappers::RuntimeProgramBuilder::new(gl)"
         )?;
-        for shader in &attached_shaders.shaders {
+        for shader in self.shaders() {
             writeln!(wr, "            .shader({})", shader.shader_variable_name())?;
         }
         writeln!(wr, "            .build()?")?;
         writeln!(wr, "            .into_inner();")?;
         writeln!(wr, "            Ok(Self {{")?;
         writeln!(wr, "                name: program_name,")?;
-        for shader in &attached_shaders.shaders_with_uniforms {
+        for shader in self.shaders_with_uniforms() {
             writeln!(
                 wr,
                 "                {}: {}::new(gl, program_name),",
@@ -149,7 +108,7 @@ impl WrappedProgram {
             wr,
             "    pub fn build(gl: &::tinygl::Context) -> Result<Self, String> {{"
         )?;
-        for shader in &attached_shaders.shaders {
+        for shader in self.shaders() {
             writeln!(
                 wr,
                 "        let {} = ::tinygl::wrappers::GlRefHandle::new(gl, {}::build(gl)?);",
@@ -159,7 +118,7 @@ impl WrappedProgram {
         }
         writeln!(wr, "        Ok(Self::new(")?;
         writeln!(wr, "            gl,")?;
-        for shader in &attached_shaders.shaders {
+        for shader in self.shaders() {
             writeln!(
                 wr,
                 "            {name}.as_ref(),",
@@ -173,7 +132,7 @@ impl WrappedProgram {
         let mut known = std::collections::HashSet::new();
 
         // Uniform getters/setters for the included shaders
-        for shader in &attached_shaders.shaders_with_uniforms {
+        for shader in self.shaders_with_uniforms() {
             for uniform in shader.uniforms() {
                 let ty = uniform.ty.unwrap();
 
@@ -245,55 +204,16 @@ impl WrappedProgram {
 
         Ok(())
     }
+}
 
-    pub fn write_root_include(&self, mut wr: impl Write) -> std::io::Result<()> {
+impl WrappedItem for WrappedProgram<'_> {
+    fn write(&self, dest: &Path) -> Result<(), crate::Error> {
+        self.write_rust_wrapper(dest)
+    }
+
+    fn write_root_include(&self, wr: &mut dyn Write) -> Result<(), crate::Error> {
         writeln!(wr, "// {}", self.id)?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
-    }
-}
-
-pub struct WrappedProgramRef<'a> {
-    pub program: &'a WrappedProgram,
-    attached_shaders: WrappedProgramUniforms<'a>,
-}
-
-impl<'a> WrappedProgramRef<'a> {
-    pub fn new(program: &'a WrappedProgram, attached_shaders: WrappedProgramUniforms<'a>) -> Self {
-        Self {
-            program,
-            attached_shaders,
-        }
-    }
-
-    pub fn write(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
-        self.program
-            .write_rust_wrapper(dest, &self.attached_shaders)
-    }
-
-    pub fn into_id(self) -> String {
-        self.program.id.clone()
-    }
-}
-
-pub trait WrappedProgramId {
-    fn id(&self) -> &str;
-}
-
-impl WrappedProgramId for WrappedProgram {
-    fn id(&self) -> &str {
-        &self.id
-    }
-}
-
-impl WrappedProgramId for WrappedProgramRef<'_> {
-    fn id(&self) -> &str {
-        self.program.id()
-    }
-}
-
-impl WrappedProgramId for String {
-    fn id(&self) -> &str {
-        &self
     }
 }

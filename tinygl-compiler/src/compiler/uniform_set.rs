@@ -1,34 +1,29 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::iter::FromIterator;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use heck::CamelCase;
 use heck::SnakeCase;
 
-use super::{WrappedProgram, WrappedProgramId, WrappedProgramUniforms, WrappedShader};
+use super::{WrappedItem, WrappedProgram};
 use crate::reflect::FoundUniform;
 
-pub struct WrappedUniformSet {
+pub struct WrappedUniformSet<'p, 's> {
     /// Identifier for this uniform set
     id: String,
     /// Name of the Rust wrapper file for this set
     rs_file_name: String,
     /// Name of the target trait
     trait_name: String,
+    /// List of wrapped programs
+    programs: Vec<&'p WrappedProgram<'s>>,
 }
 
-pub struct UniformSetProgram<'a> {
-    pub program: &'a WrappedProgram,
-    pub uniforms: WrappedProgramUniforms<'a>,
-}
-
-pub struct ResolvedUniformSet<'a>(pub Vec<UniformSetProgram<'a>>);
-
-impl WrappedUniformSet {
-    pub fn new(id: &str) -> Self {
+impl<'p, 's> WrappedUniformSet<'p, 's> {
+    pub fn new(programs: &[&'p WrappedProgram<'s>], id: &str) -> Self {
         let id = id.to_snake_case();
         let trait_name = (id.clone() + "_uniform_set").to_camel_case();
         let rs_file_name = trait_name.to_snake_case() + ".rs";
@@ -37,6 +32,7 @@ impl WrappedUniformSet {
             id,
             rs_file_name,
             trait_name,
+            programs: programs.to_vec(),
         }
     }
 
@@ -44,57 +40,19 @@ impl WrappedUniformSet {
         &self.id
     }
 
-    pub fn resolve_programs<'a>(
-        &self,
-        programs: &[&dyn WrappedProgramId],
-        wrapped_programs: &'a HashMap<String, WrappedProgram>,
-        wrapped_shaders: &'a HashMap<PathBuf, WrappedShader>,
-    ) -> crate::Result<ResolvedUniformSet<'a>> {
-        // Resolve programs
-        let wrapped_programs: std::result::Result<Vec<_>, _> = programs
-            .iter()
-            .map(|program| {
-                let name = program.id().to_snake_case();
-                wrapped_programs
-                    .get(&name)
-                    .ok_or_else(|| crate::Error::UnwrappedProgram((*name).to_owned()))
-            })
-            .collect();
-
-        let wrapped_programs = wrapped_programs?;
-
-        // Resolve uniforms for each program
-        let wrapped_uniforms: std::result::Result<Vec<_>, _> = wrapped_programs
-            .iter()
-            .map(|program| {
-                program
-                    .resolve_shaders(&wrapped_shaders)
-                    .map(|uniforms| UniformSetProgram { program, uniforms })
-            })
-            .collect();
-
-        Ok(ResolvedUniformSet(wrapped_uniforms?))
-    }
-
-    fn write_rust_wrapper(
-        &self,
-        dest: impl AsRef<Path>,
-        programs: &ResolvedUniformSet<'_>,
-    ) -> crate::Result<()> {
+    fn write_rust_wrapper(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
         // Write Rust program code
         let output_rs = File::create(&Path::new(dest.as_ref()).join(&self.rs_file_name))?;
         let mut wr = BufWriter::new(output_rs);
 
         // Compute uniform set intersection
-        let uniform_sets: Vec<HashSet<&FoundUniform>> = programs
-            .0
+        let uniform_sets: Vec<HashSet<&FoundUniform>> = self
+            .programs
             .iter()
             .map(|program| {
                 HashSet::<&FoundUniform>::from_iter(
                     program
-                        .uniforms
-                        .shaders_with_uniforms
-                        .iter()
+                        .shaders_with_uniforms()
                         .flat_map(|shader| shader.uniforms()),
                 )
             })
@@ -141,12 +99,12 @@ impl WrappedUniformSet {
         writeln!(wr, "}}")?;
 
         // Write implementations for the known programs
-        for program in &programs.0 {
+        for program in &self.programs {
             writeln!(
                 wr,
                 "impl {trait_name} for {program_struct_name} {{",
                 trait_name = self.trait_name,
-                program_struct_name = program.program.struct_name()
+                program_struct_name = program.struct_name()
             )?;
 
             for uniform in &unified {
@@ -162,7 +120,7 @@ impl WrappedUniformSet {
                     writeln!(
                         wr,
                         "        {struct_name}::get_{uniform_sc_name}_binding(self)",
-                        struct_name = program.program.struct_name(),
+                        struct_name = program.struct_name(),
                         uniform_sc_name = uniform.name.to_snake_case()
                     )?;
                     writeln!(wr, "    }}")?;
@@ -177,7 +135,7 @@ impl WrappedUniformSet {
                 writeln!(
                     wr,
                     "        {struct_name}::set_{uniform_sc_name}(self, gl, value)",
-                    struct_name = program.program.struct_name(),
+                    struct_name = program.struct_name(),
                     uniform_sc_name = uniform.name.to_snake_case()
                 )?;
                 writeln!(wr, "    }}")?;
@@ -188,25 +146,16 @@ impl WrappedUniformSet {
 
         Ok(())
     }
+}
 
-    pub fn write_root_include(&self, mut wr: impl Write) -> std::io::Result<()> {
+impl WrappedItem for WrappedUniformSet<'_, '_> {
+    fn write(&self, dest: &Path) -> Result<(), crate::Error> {
+        self.write_rust_wrapper(dest)
+    }
+
+    fn write_root_include(&self, wr: &mut dyn std::io::Write) -> Result<(), crate::Error> {
         writeln!(wr, "// {}", self.id)?;
         writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
         Ok(())
-    }
-}
-
-pub struct WrappedUniformSetRef<'a> {
-    pub set: &'a WrappedUniformSet,
-    uniform_data: ResolvedUniformSet<'a>,
-}
-
-impl<'a> WrappedUniformSetRef<'a> {
-    pub fn new(set: &'a WrappedUniformSet, uniform_data: ResolvedUniformSet<'a>) -> Self {
-        Self { set, uniform_data }
-    }
-
-    pub fn write(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
-        self.set.write_rust_wrapper(dest, &self.uniform_data)
     }
 }
