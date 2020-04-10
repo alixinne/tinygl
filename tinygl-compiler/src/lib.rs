@@ -6,4 +6,5 @@ mod types;
 
 pub use compiler::*;
 pub use errors::*;
+pub use reflect::*;
 pub use shaderc::ShaderKind;
