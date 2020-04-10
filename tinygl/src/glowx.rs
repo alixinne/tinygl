@@ -27,59 +27,60 @@ impl ContextEx {
         };
 
         // Setup logging on the context
-        gl.ctx.debug_message_callback(|source, message_type, id, severity, message| {
-            use crate::gl as Gl;
-            let source = match source {
-                Gl::DEBUG_SOURCE_API => "opengl::api",
-                Gl::DEBUG_SOURCE_WINDOW_SYSTEM => "opengl::window_system",
-                Gl::DEBUG_SOURCE_SHADER_COMPILER => "opengl::shader_compiler",
-                Gl::DEBUG_SOURCE_THIRD_PARTY => "opengl::third_party",
-                Gl::DEBUG_SOURCE_APPLICATION => "opengl::application",
-                Gl::DEBUG_SOURCE_OTHER => "opengl::other",
-                _ => "opengl::unknown",
-            };
+        gl.ctx
+            .debug_message_callback(|source, message_type, id, severity, message| {
+                use crate::gl as Gl;
+                let source = match source {
+                    Gl::DEBUG_SOURCE_API => "opengl::api",
+                    Gl::DEBUG_SOURCE_WINDOW_SYSTEM => "opengl::window_system",
+                    Gl::DEBUG_SOURCE_SHADER_COMPILER => "opengl::shader_compiler",
+                    Gl::DEBUG_SOURCE_THIRD_PARTY => "opengl::third_party",
+                    Gl::DEBUG_SOURCE_APPLICATION => "opengl::application",
+                    Gl::DEBUG_SOURCE_OTHER => "opengl::other",
+                    _ => "opengl::unknown",
+                };
 
-            let level = match severity {
-                Gl::DEBUG_SEVERITY_HIGH => log::Level::Error,
-                Gl::DEBUG_SEVERITY_MEDIUM => log::Level::Warn,
-                Gl::DEBUG_SEVERITY_LOW => log::Level::Info,
-                Gl::DEBUG_SEVERITY_NOTIFICATION => log::Level::Debug,
-                _ => log::Level::Trace,
-            };
+                let level = match severity {
+                    Gl::DEBUG_SEVERITY_HIGH => log::Level::Error,
+                    Gl::DEBUG_SEVERITY_MEDIUM => log::Level::Warn,
+                    Gl::DEBUG_SEVERITY_LOW => log::Level::Info,
+                    Gl::DEBUG_SEVERITY_NOTIFICATION => log::Level::Debug,
+                    _ => log::Level::Trace,
+                };
 
-            let message_type = match message_type {
-                Gl::DEBUG_TYPE_ERROR => "error",
-                Gl::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "deprecated behavior",
-                Gl::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "undefined behavior",
-                Gl::DEBUG_TYPE_PORTABILITY => "portability",
-                Gl::DEBUG_TYPE_PERFORMANCE => "performance",
-                Gl::DEBUG_TYPE_MARKER => "marker",
-                Gl::DEBUG_TYPE_PUSH_GROUP => "push group",
-                Gl::DEBUG_TYPE_POP_GROUP => "pop group",
-                Gl::DEBUG_TYPE_OTHER => "other",
-                _ => "unknown",
-            };
+                let message_type = match message_type {
+                    Gl::DEBUG_TYPE_ERROR => "error",
+                    Gl::DEBUG_TYPE_DEPRECATED_BEHAVIOR => "deprecated behavior",
+                    Gl::DEBUG_TYPE_UNDEFINED_BEHAVIOR => "undefined behavior",
+                    Gl::DEBUG_TYPE_PORTABILITY => "portability",
+                    Gl::DEBUG_TYPE_PERFORMANCE => "performance",
+                    Gl::DEBUG_TYPE_MARKER => "marker",
+                    Gl::DEBUG_TYPE_PUSH_GROUP => "push group",
+                    Gl::DEBUG_TYPE_POP_GROUP => "pop group",
+                    Gl::DEBUG_TYPE_OTHER => "other",
+                    _ => "unknown",
+                };
 
-            // Create record manually so we can override the module path
-            log::logger().log(
-                &log::Record::builder()
-                    .args(format_args!(
-                        "{} ({}): {}{}",
-                        message_type,
-                        id,
-                        message,
-                        if level == log::Level::Warn || level == log::Level::Error {
-                            format!(", stack backtrace:\n{:?}", backtrace::Backtrace::new())
-                        } else {
-                            "".to_owned()
-                        }
-                    ))
-                    .level(level)
-                    .target("opengl")
-                    .module_path_static(Some(source))
-                    .build(),
-            );
-        });
+                // Create record manually so we can override the module path
+                log::logger().log(
+                    &log::Record::builder()
+                        .args(format_args!(
+                            "{} ({}): {}{}",
+                            message_type,
+                            id,
+                            message,
+                            if level == log::Level::Warn || level == log::Level::Error {
+                                format!(", stack backtrace:\n{:?}", backtrace::Backtrace::new())
+                            } else {
+                                "".to_owned()
+                            }
+                        ))
+                        .level(level)
+                        .target("opengl")
+                        .module_path_static(Some(source))
+                        .build(),
+                );
+            });
 
         gl
     }

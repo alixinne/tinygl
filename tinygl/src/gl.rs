@@ -24,8 +24,7 @@ impl fmt::Display for GlError {
     }
 }
 
-impl std::error::Error for GlError {
-}
+impl std::error::Error for GlError {}
 
 pub trait CheckGlErrorExt {
     unsafe fn check_last_error(&self) -> Result<(), GlError>;
