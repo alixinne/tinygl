@@ -1,9 +1,5 @@
-use crate::context::HasContext;
+mod program_common;
+pub use program_common::*;
 
-pub trait ProgramCommon {
-    fn name(&self) -> <glow::Context as HasContext>::Program;
-
-    fn use_program(&self, gl: &crate::Context) {
-        unsafe { gl.use_program(Some(self.name())) };
-    }
-}
+mod runtime_program;
+pub use runtime_program::*;

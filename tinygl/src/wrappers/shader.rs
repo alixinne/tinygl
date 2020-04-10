@@ -1,10 +1,18 @@
 use crate::context::{Context, HasContext};
 
-/// Common traits to binary and source shaders
-pub trait ShaderCommon {
-    fn kind() -> u32;
-    fn name(&self) -> <glow::Context as HasContext>::Shader;
-}
+#[cfg(not(target_arch = "wasm32"))]
+mod binary_shader;
+#[cfg(not(target_arch = "wasm32"))]
+pub use binary_shader::BinaryShader;
+
+mod runtime_shader;
+pub use runtime_shader::*;
+
+mod shader_common;
+pub use shader_common::*;
+
+mod source_shader;
+pub use source_shader::SourceShader;
 
 /// Build a shader name and try to compile it using the given callback
 unsafe fn make_shader<F>(
@@ -28,45 +36,4 @@ where
     }
 
     Ok(shader_name)
-}
-
-/// SPIR-V shader wrapper
-#[cfg(not(target_arch = "wasm32"))]
-pub trait BinaryShader<'a>: ShaderCommon {
-    fn get_binary() -> &'a [u8];
-
-    fn build(gl: &Context) -> Result<<glow::Context as HasContext>::Shader, String> {
-        unsafe {
-            make_shader(gl, Self::kind(), |shader_name| {
-                use crate::gl;
-
-                // Load the binary
-                gl.shader_binary(
-                    &[shader_name],
-                    gl::SHADER_BINARY_FORMAT_SPIR_V,
-                    Self::get_binary(),
-                );
-
-                // Specialize the binary
-                gl.specialize_shader(shader_name, "main", &[], &[]);
-            })
-        }
-    }
-}
-
-/// GLSL shader wrapper
-pub trait SourceShader<'a>: ShaderCommon {
-    fn get_source() -> &'a str;
-
-    fn build(gl: &Context) -> Result<<glow::Context as HasContext>::Shader, String> {
-        unsafe {
-            make_shader(gl, Self::kind(), |shader_name| {
-                // Load the binary
-                gl.shader_source(shader_name, Self::get_source());
-
-                // Specialize the binary
-                gl.compile_shader(shader_name);
-            })
-        }
-    }
 }

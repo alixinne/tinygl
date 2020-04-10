@@ -164,12 +164,13 @@ impl WrappedShader {
         )?;
         writeln!(
             wr,
-            "        Ok(Self {{ name: <Self as {st}>::build(gl)? }})",
+            "        Ok(Self {{ name: <Self as {st}>::build(gl, ::tinygl::gl::{kind})? }})",
             st = if output_type.is_source() {
                 "::tinygl::wrappers::SourceShader"
             } else {
                 "::tinygl::wrappers::BinaryShader"
-            }
+            },
+            kind = self.kind.constant_name,
         )?;
         writeln!(wr, "    }}")?;
         writeln!(wr, "}}")?;
@@ -265,7 +266,7 @@ impl WrappedShader {
             "impl ::tinygl::wrappers::ShaderCommon for {} {{",
             self.shader_struct_name()
         )?;
-        writeln!(wr, "    fn kind() -> u32 {{")?;
+        writeln!(wr, "    fn kind(&self) -> u32 {{")?;
         writeln!(wr, "        ::tinygl::gl::{}", self.kind.constant_name)?;
         writeln!(wr, "    }}")?;
         writeln!(

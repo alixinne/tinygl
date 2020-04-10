@@ -117,34 +117,15 @@ impl WrappedProgram {
         writeln!(wr, "              ) -> Result<Self, String> {{")?;
         writeln!(wr, "        use ::tinygl::wrappers::ShaderCommon;")?;
         writeln!(wr, "        use ::tinygl::HasContext;")?;
-        writeln!(wr, "        unsafe {{")?;
-        writeln!(wr, "            let program_name = gl.create_program()?;")?;
-        for shader in &attached_shaders.shaders {
-            writeln!(
-                wr,
-                "            gl.attach_shader(program_name, {}.name());",
-                shader.shader_variable_name()
-            )?;
-        }
-        writeln!(wr, "            gl.link_program(program_name);")?;
-        for shader in &attached_shaders.shaders {
-            writeln!(
-                wr,
-                "            gl.detach_shader(program_name, {}.name());",
-                shader.shader_variable_name()
-            )?;
-        }
         writeln!(
             wr,
-            "            if !gl.get_program_link_status(program_name) {{"
+            "        let program_name = ::tinygl::wrappers::RuntimeProgramBuilder::new(gl)"
         )?;
-        writeln!(
-            wr,
-            "                let error = gl.get_program_info_log(program_name);"
-        )?;
-        writeln!(wr, "                gl.delete_program(program_name);")?;
-        writeln!(wr, "                return Err(error);")?;
-        writeln!(wr, "            }}")?;
+        for shader in &attached_shaders.shaders {
+            writeln!(wr, "            .shader({})", shader.shader_variable_name())?;
+        }
+        writeln!(wr, "            .build()?")?;
+        writeln!(wr, "            .into_inner();")?;
         writeln!(wr, "            Ok(Self {{")?;
         writeln!(wr, "                name: program_name,")?;
         for shader in &attached_shaders.shaders_with_uniforms {
