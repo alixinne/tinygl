@@ -8,7 +8,7 @@ use crate::types::*;
 pub struct FoundUniform {
     pub name: String,
     pub location: u32,
-    pub ty: Option<GenericType>,
+    pub ty: Option<ItemOrArrayType>,
 
     pub binding: Option<i32>,
 
@@ -43,7 +43,7 @@ pub fn find_uniforms(
     let mut constants = std::collections::HashMap::new();
 
     // Find types
-    let mut types: std::collections::HashMap<spirv_headers::Word, GenericType> =
+    let mut types: std::collections::HashMap<spirv_headers::Word, ItemOrArrayType> =
         std::collections::HashMap::new();
 
     for type_global_value in &module.types_global_values {
@@ -58,9 +58,9 @@ pub fn find_uniforms(
             spirv_headers::Op::TypeInt => {
                 if let rr::Operand::LiteralInt32(32) = type_global_value.operands[0] {
                     if let rr::Operand::LiteralInt32(0) = type_global_value.operands[1] {
-                        types.insert(id, GenericType::Atom(AtomType::UInt));
+                        types.insert(id, ItemOrArrayType::atom(AtomType::UInt));
                     } else {
-                        types.insert(id, GenericType::Atom(AtomType::Int));
+                        types.insert(id, ItemOrArrayType::atom(AtomType::Int));
                     }
                 } else {
                     panic!("unsupported integer width");
@@ -68,21 +68,46 @@ pub fn find_uniforms(
             }
             spirv_headers::Op::TypeFloat => {
                 if let rr::Operand::LiteralInt32(32) = type_global_value.operands[0] {
-                    types.insert(id, GenericType::Atom(AtomType::Float));
+                    types.insert(id, ItemOrArrayType::atom(AtomType::Float));
                 } else if let rr::Operand::LiteralInt32(64) = type_global_value.operands[0] {
-                    types.insert(id, GenericType::Atom(AtomType::Double));
+                    types.insert(id, ItemOrArrayType::atom(AtomType::Double));
                 } else {
                     panic!("unsupported float width");
                 }
             }
             spirv_headers::Op::TypeBool => {
                 // TODO: Check TypeBool syntax
-                types.insert(id, GenericType::Atom(AtomType::Bool));
+                types.insert(id, ItemOrArrayType::atom(AtomType::Bool));
             }
             spirv_headers::Op::TypeVector => {
                 if let rr::Operand::IdRef(type_id) = type_global_value.operands[0] {
                     if let rr::Operand::LiteralInt32(components) = type_global_value.operands[1] {
-                        types.insert(id, GenericType::vector(types[&type_id], components));
+                        types.insert(id, ItemOrArrayType::vector(types[&type_id], components));
+                    }
+                }
+            }
+            spirv_headers::Op::TypeMatrix => {
+                if let rr::Operand::IdRef(type_id) = type_global_value.operands[0] {
+                    if let rr::Operand::LiteralInt32(n) = type_global_value.operands[1] {
+                        if let ItemOrArrayType::Item(GenericType::Vector(VectorType {
+                            base_type,
+                            components,
+                        })) = types[&type_id]
+                        {
+                            if base_type.is_float_type() {
+                                if components == n {
+                                    types.insert(
+                                        id,
+                                        ItemOrArrayType::matrix(
+                                            ItemOrArrayType::atom(base_type),
+                                            components,
+                                        ),
+                                    );
+                                } else {
+                                    // TODO: Support rectangular matrices
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -92,7 +117,7 @@ pub fn find_uniforms(
                         if types.get(&type_id).is_some() {
                             types.insert(
                                 id,
-                                GenericType::array(types[&type_id], constants[&constant_id]),
+                                ItemOrArrayType::array(types[&type_id], constants[&constant_id]),
                             );
                         } else {
                             println!(
@@ -107,10 +132,10 @@ pub fn find_uniforms(
                     panic!("failed to get type_id");
                 }
             }
-            spirv_headers::Op::TypeImage => {
+            spirv_headers::Op::TypeSampledImage => {
                 // TODO: Store texture details in reflection data?
                 // TODO: Store binding details
-                types.insert(id, GenericType::Atom(AtomType::UInt));
+                types.insert(id, ItemOrArrayType::atom(AtomType::UInt));
             }
             _ => (),
         }
