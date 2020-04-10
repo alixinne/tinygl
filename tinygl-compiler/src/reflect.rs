@@ -69,6 +69,8 @@ pub fn find_uniforms(
             spirv_headers::Op::TypeFloat => {
                 if let rr::Operand::LiteralInt32(32) = type_global_value.operands[0] {
                     types.insert(id, GenericType::Atom(AtomType::Float));
+                } else if let rr::Operand::LiteralInt32(64) = type_global_value.operands[0] {
+                    types.insert(id, GenericType::Atom(AtomType::Double));
                 } else {
                     panic!("unsupported float width");
                 }

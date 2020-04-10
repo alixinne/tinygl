@@ -4,6 +4,7 @@ use std::fmt;
 pub enum AtomType {
     Int,
     Float,
+    Double,
     UInt,
     Bool,
 }
@@ -13,6 +14,7 @@ impl AtomType {
         match self {
             Self::Int => "ivec",
             Self::Float => "vec",
+            Self::Double => "dvec",
             Self::UInt => "uvec",
             Self::Bool => "bvec",
         }
@@ -22,6 +24,7 @@ impl AtomType {
         match self {
             Self::Int => "i32",
             Self::Float => "f32",
+            Self::Double => "f64",
             Self::UInt => "u32",
             Self::Bool => "bool",
         }
@@ -33,6 +36,7 @@ impl fmt::Display for AtomType {
         match self {
             Self::Int => write!(f, "int"),
             Self::Float => write!(f, "float"),
+            Self::Double => write!(f, "double"),
             Self::UInt => write!(f, "uint"),
             Self::Bool => write!(f, "bool"),
         }
