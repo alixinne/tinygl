@@ -156,6 +156,10 @@ impl ContextEx {
             format,
         );
     }
+
+    pub unsafe fn set_framebuffer_parameter(&self, target: u32, pname: u32, param: i32) {
+        self.glx.FramebufferParameteri(target, pname, param);
+    }
 }
 
 impl std::ops::Deref for ContextEx {
