@@ -144,16 +144,20 @@ impl<'s> WrappedProgram<'s> {
 
                 writeln!(
                     wr,
-                    "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name}) {{",
+                    "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, {extra}value: {type_name}) {{",
                     uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.rust_value_type()
+                    type_name = ty.rust_value_type(),
+                    extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
                 )?;
 
                 writeln!(
                     wr,
-                    "        self.{location_name}.set_{uniform_sc_name}(gl, value);",
+                    "        self.{location_name}.set_{uniform_sc_name}(gl, {extra}value);",
                     location_name = shader.uniform_locations_name(),
                     uniform_sc_name = uniform.name.to_snake_case(),
+                    extra = ty
+                        .uniform_method_extra_args_no_ty()
+                        .map_or_else(|| String::new(), |x| format!("{}, ", x)),
                 )?;
 
                 writeln!(wr, "    }}")?;

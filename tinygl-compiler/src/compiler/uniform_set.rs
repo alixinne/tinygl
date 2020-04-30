@@ -92,9 +92,10 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
 
             writeln!(
                 wr,
-                "    fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name});",
+                "    fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, {extra}value: {type_name});",
                 uniform_sc_name = uniform.name.to_snake_case(),
-                type_name = ty.rust_value_type()
+                type_name = ty.rust_value_type(),
+                extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
             )?;
         }
         writeln!(wr, "}}")?;
@@ -129,15 +130,19 @@ impl<'p, 's> WrappedUniformSet<'p, 's> {
 
                 writeln!(
                     wr,
-                    "    fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name}) {{",
+                    "    fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, {extra}value: {type_name}) {{",
                     uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.rust_value_type()
+                    type_name = ty.rust_value_type(),
+                    extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
                 )?;
                 writeln!(
                     wr,
-                    "        {struct_name}::set_{uniform_sc_name}(self, gl, value)",
+                    "        {struct_name}::set_{uniform_sc_name}(self, gl, {extra}value)",
                     struct_name = program.struct_name(),
-                    uniform_sc_name = uniform.name.to_snake_case()
+                    uniform_sc_name = uniform.name.to_snake_case(),
+                    extra = ty
+                        .uniform_method_extra_args_no_ty()
+                        .map_or_else(|| String::new(), |x| format!("{}, ", x)),
                 )?;
                 writeln!(wr, "    }}")?;
             }

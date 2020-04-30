@@ -273,19 +273,21 @@ impl WrappedShader {
 
             writeln!(
                 wr,
-                "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, value: {type_name}) {{",
+                "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, {extra}value: {type_name}) {{",
                 uniform_sc_name = uniform.name.to_snake_case(),
                 type_name = ty.rust_value_type(),
+                extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
             )?;
 
             writeln!(wr, "        use ::tinygl::HasContext;")?;
 
             writeln!(
                 wr,
-                "        unsafe {{ gl.uniform_{prefix}_slice(self.{location}.as_ref(), {what}) }};",
+                "        unsafe {{ gl.uniform_{prefix}_slice(self.{location}.as_ref(), {extra}{what}) }};",
                 prefix = ty.uniform_method_name(),
                 location = uniform.location_name(),
-                what = ty.glow_value("value")
+                what = ty.glow_value("value"),
+                extra = ty.uniform_method_extra_args_no_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
             )?;
 
             writeln!(wr, "    }}")?;

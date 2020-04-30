@@ -4,6 +4,11 @@ use super::*;
 // TODO: bvec mapping is broken
 // TODO: dvec mapping is broken
 
+pub struct ExtraArg {
+    pub name: &'static str,
+    pub ty: &'static str,
+}
+
 pub trait CodegenExt {
     fn glsl_base_type(&self) -> &'static str;
     fn glsl_vec_name(&self) -> String;
@@ -11,6 +16,37 @@ pub trait CodegenExt {
     fn rust_value_type(&self) -> String;
     fn rust_primitive_type(&self) -> &'static str;
     fn uniform_method_name(&self) -> String;
+    fn uniform_method_extra_args(&self) -> &[ExtraArg];
+
+    fn uniform_method_extra_args_with_ty(&self) -> Option<String> {
+        let args = self.uniform_method_extra_args();
+
+        if args.len() > 0 {
+            Some(
+                args.iter()
+                    .map(|arg| format!("{}: {}", arg.name, arg.ty))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn uniform_method_extra_args_no_ty(&self) -> Option<String> {
+        let args = self.uniform_method_extra_args();
+
+        if args.len() > 0 {
+            Some(
+                args.iter()
+                    .map(|arg| arg.name)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+        } else {
+            None
+        }
+    }
 }
 
 impl CodegenExt for AtomType {
@@ -61,6 +97,10 @@ impl CodegenExt for AtomType {
     fn uniform_method_name(&self) -> String {
         format!("1_{}", self.rust_primitive_type())
     }
+
+    fn uniform_method_extra_args(&self) -> &[ExtraArg] {
+        &[]
+    }
 }
 
 impl CodegenExt for VectorType {
@@ -95,6 +135,10 @@ impl CodegenExt for VectorType {
             self.base_type.rust_primitive_type()
         )
     }
+
+    fn uniform_method_extra_args(&self) -> &[ExtraArg] {
+        &[]
+    }
 }
 
 impl CodegenExt for MatrixType {
@@ -124,6 +168,13 @@ impl CodegenExt for MatrixType {
 
     fn uniform_method_name(&self) -> String {
         format!("matrix_{}_{}", self.n, self.rust_primitive_type())
+    }
+
+    fn uniform_method_extra_args(&self) -> &[ExtraArg] {
+        &[ExtraArg {
+            name: "transpose",
+            ty: "bool",
+        }]
     }
 }
 
@@ -175,6 +226,14 @@ impl CodegenExt for GenericType {
             Self::Matrix(matrix) => matrix.uniform_method_name(),
         }
     }
+
+    fn uniform_method_extra_args(&self) -> &[ExtraArg] {
+        match self {
+            Self::Atom(atom) => atom.uniform_method_extra_args(),
+            Self::Vector(vector) => vector.uniform_method_extra_args(),
+            Self::Matrix(matrix) => matrix.uniform_method_extra_args(),
+        }
+    }
 }
 
 impl CodegenExt for ItemOrArrayType {
@@ -217,6 +276,13 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.uniform_method_name(),
             Self::Array(item, _size) => item.uniform_method_name(),
+        }
+    }
+
+    fn uniform_method_extra_args(&self) -> &[ExtraArg] {
+        match self {
+            Self::Item(item) => item.uniform_method_extra_args(),
+            Self::Array(item, _size) => item.uniform_method_extra_args(),
         }
     }
 }
