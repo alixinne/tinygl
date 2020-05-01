@@ -7,7 +7,6 @@ pub use context::*;
 pub mod gl;
 pub mod wrappers;
 
-pub use cgmath;
 pub use glow;
 
 pub mod prelude {
@@ -20,6 +19,4 @@ pub mod prelude {
     #[cfg(not(target_arch = "wasm32"))]
     pub use super::wrappers::BinaryShader;
     pub use super::wrappers::SourceShader;
-
-    pub use cgmath;
 }

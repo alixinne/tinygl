@@ -118,9 +118,9 @@ impl CodegenExt for VectorType {
 
     fn rust_value_type(&self) -> String {
         format!(
-            "::tinygl::cgmath::Vector{}<{}>",
+            "impl ::std::convert::AsRef<[{}; {}]>",
+            self.base_type.rust_value_type(),
             self.components,
-            self.base_type.rust_value_type()
         )
     }
 
@@ -156,9 +156,9 @@ impl CodegenExt for MatrixType {
 
     fn rust_value_type(&self) -> String {
         format!(
-            "::tinygl::cgmath::Matrix{}<{}>",
-            self.n,
-            self.base_type.rust_value_type()
+            "impl ::std::convert::AsRef<[{}; {}]>",
+            self.base_type.rust_value_type(),
+            self.n * self.n,
         )
     }
 
