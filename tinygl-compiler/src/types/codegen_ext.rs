@@ -156,9 +156,9 @@ impl CodegenExt for MatrixType {
 
     fn rust_value_type(&self) -> String {
         format!(
-            "impl ::std::convert::AsRef<[{}; {}]>",
-            self.base_type.rust_value_type(),
-            self.n * self.n,
+            "impl ::std::convert::AsRef<[[{ty}; {n}]; {n}]>",
+            ty = self.base_type.rust_value_type(),
+            n = self.n,
         )
     }
 

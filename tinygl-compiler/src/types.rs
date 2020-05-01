@@ -117,8 +117,13 @@ impl GenericType {
     fn glow_value(&self, name: &str) -> String {
         match self {
             Self::Atom(_) => format!("&[{}]", name),
-            Self::Vector(_) => format!("{}.as_ref()", name,),
-            Self::Matrix(_) => format!("{}.as_ref()", name,),
+            Self::Vector(_) => format!("{}.as_ref()", name),
+            Self::Matrix(inner) => format!(
+                "::std::mem::transmute::<_, &[{ty}; {n}]>({name}.as_ref())",
+                name = name,
+                ty = inner.rust_primitive_type(),
+                n = inner.n * inner.n
+            ),
         }
     }
 }
