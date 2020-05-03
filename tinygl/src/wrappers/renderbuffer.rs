@@ -5,9 +5,12 @@ pub struct Renderbuffer {
 }
 
 impl Renderbuffer {
-    pub fn new(gl: &crate::Context) -> Result<Self, String> {
+    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
         Ok(Self {
-            name: unsafe { gl.create_renderbuffer() }?,
+            name: unsafe {
+                gl.create_renderbuffer()
+                    .map_err(|msg| crate::Error::RenderbufferCreationFailed(msg))
+            }?,
         })
     }
 

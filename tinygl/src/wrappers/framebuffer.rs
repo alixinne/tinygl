@@ -5,9 +5,12 @@ pub struct Framebuffer {
 }
 
 impl Framebuffer {
-    pub fn new(gl: &crate::Context) -> Result<Self, String> {
+    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
         Ok(Self {
-            name: unsafe { gl.create_framebuffer() }?,
+            name: unsafe {
+                gl.create_framebuffer()
+                    .map_err(|msg| crate::Error::FramebufferCreationFailed(msg))
+            }?,
         })
     }
 

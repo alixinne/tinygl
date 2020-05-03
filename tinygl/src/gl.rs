@@ -4,28 +4,6 @@
 pub use crate::glowx::gl::SHADER_BINARY_FORMAT_SPIR_V;
 pub use ::glow::*;
 
-#[derive(Debug)]
-pub struct GlError(u32);
-
-use std::fmt;
-impl fmt::Display for GlError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.0 {
-            NO_ERROR => write!(f, "GL_NO_ERROR"),
-            INVALID_ENUM => write!(f, "GL_INVALID_ENUM"),
-            INVALID_VALUE => write!(f, "GL_INVALID_VALUE"),
-            INVALID_OPERATION => write!(f, "GL_INVALID_OPERATION"),
-            INVALID_FRAMEBUFFER_OPERATION => write!(f, "GL_INVALID_FRAMEBUFFER_OPERATION"),
-            OUT_OF_MEMORY => write!(f, "GL_OUT_OF_MEMORY"),
-            STACK_UNDERFLOW => write!(f, "GL_STACK_UNDERFLOW"),
-            STACK_OVERFLOW => write!(f, "GL_STACK_OVERFLOW"),
-            x => write!(f, "GL_ERROR: {:x}", x),
-        }
-    }
-}
-
-impl std::error::Error for GlError {}
-
 pub trait CheckGlErrorExt {
     /// Check the state of the last OpenGL operation
     ///
@@ -33,14 +11,14 @@ pub trait CheckGlErrorExt {
     ///
     /// This call returns the value of glGetLastError(), it is up to the library user to call this
     /// at the right location.
-    unsafe fn check_last_error(&self) -> Result<(), GlError>;
+    unsafe fn check_last_error(&self) -> crate::Result<()>;
 }
 
 impl<T: glow::HasContext> CheckGlErrorExt for T {
-    unsafe fn check_last_error(&self) -> Result<(), GlError> {
+    unsafe fn check_last_error(&self) -> crate::Result<()> {
         match self.get_error() {
-            NO_ERROR => Ok(()),
-            other => Err(GlError(other)),
+            glow::NO_ERROR => Ok(()),
+            other => Err(crate::Error::OpenGlError(crate::OpenGlErrorCode(other))),
         }
     }
 }

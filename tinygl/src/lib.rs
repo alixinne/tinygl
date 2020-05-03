@@ -4,6 +4,9 @@ pub(crate) mod glowx;
 mod context;
 pub use context::*;
 
+mod error;
+pub use error::*;
+
 pub mod gl;
 pub mod wrappers;
 

@@ -38,9 +38,12 @@ impl<'a> RuntimeProgramBuilder<'a> {
         self
     }
 
-    pub fn build(self) -> Result<RuntimeProgram, String> {
+    pub fn build(self) -> crate::Result<RuntimeProgram> {
         unsafe {
-            let program_name = self.gl.create_program()?;
+            let program_name = self
+                .gl
+                .create_program()
+                .map_err(|msg| crate::Error::ProgramCreationFailed(msg))?;
 
             // Attach shaders
             for shader in &self.shaders {
@@ -59,7 +62,7 @@ impl<'a> RuntimeProgramBuilder<'a> {
             if !self.gl.get_program_link_status(program_name) {
                 let error = self.gl.get_program_info_log(program_name);
                 self.gl.delete_program(program_name);
-                return Err(error);
+                return Err(crate::Error::ProgramLinkFailed(error));
             }
 
             Ok(RuntimeProgram { name: program_name })

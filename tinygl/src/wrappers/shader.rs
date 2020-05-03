@@ -19,12 +19,14 @@ unsafe fn make_shader<F>(
     gl: &Context,
     kind: u32,
     mut compile_cb: F,
-) -> Result<<glow::Context as HasContext>::Shader, String>
+) -> crate::Result<<glow::Context as HasContext>::Shader>
 where
     F: FnMut(<glow::Context as HasContext>::Shader) -> (),
 {
     // Create shader object
-    let shader_name = gl.create_shader(kind)?;
+    let shader_name = gl
+        .create_shader(kind)
+        .map_err(|msg| crate::Error::ShaderCreationFailed(msg))?;
 
     compile_cb(shader_name);
 
@@ -32,7 +34,7 @@ where
     if !gl.get_shader_compile_status(shader_name) {
         let log = gl.get_shader_info_log(shader_name);
         gl.delete_shader(shader_name);
-        return Err(log);
+        return Err(crate::Error::ShaderCompilationFailed(log));
     }
 
     Ok(shader_name)

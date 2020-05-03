@@ -13,3 +13,4 @@ rspirv = { git = "https://github.com/gfx-rs/rspirv.git", rev = "5025ac0" }
 spirv_headers = { git = "https://github.com/gfx-rs/rspirv.git", rev = "5025ac0" }
 sha2 = "0.8"
 base64 = "0.12"
+thiserror = "1.0"

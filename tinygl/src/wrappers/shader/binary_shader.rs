@@ -6,7 +6,7 @@ pub fn build_bin_shader(
     gl: &Context,
     binary: &[u8],
     kind: u32,
-) -> Result<<glow::Context as HasContext>::Shader, String> {
+) -> crate::Result<<glow::Context as HasContext>::Shader> {
     unsafe {
         make_shader(gl, kind, |shader_name| {
             use crate::gl;
@@ -24,7 +24,7 @@ pub fn build_bin_shader(
 pub trait BinaryShader<'a>: ShaderCommon {
     fn get_binary() -> &'a [u8];
 
-    fn build(gl: &Context, kind: u32) -> Result<<glow::Context as HasContext>::Shader, String> {
+    fn build(gl: &Context, kind: u32) -> crate::Result<<glow::Context as HasContext>::Shader> {
         build_bin_shader(gl, Self::get_binary(), kind)
     }
 }

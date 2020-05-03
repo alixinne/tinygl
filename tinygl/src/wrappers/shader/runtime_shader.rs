@@ -9,14 +9,14 @@ pub struct RuntimeShader {
 
 impl RuntimeShader {
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn build_bin(gl: &Context, binary: &[u8], kind: u32) -> Result<Self, String> {
+    pub fn build_bin(gl: &Context, binary: &[u8], kind: u32) -> crate::Result<Self> {
         Ok(Self {
             kind,
             name: super::binary_shader::build_bin_shader(gl, binary, kind)?,
         })
     }
 
-    pub fn build_src(gl: &Context, src: &str, kind: u32) -> Result<Self, String> {
+    pub fn build_src(gl: &Context, src: &str, kind: u32) -> crate::Result<Self> {
         Ok(Self {
             kind,
             name: super::source_shader::build_src_shader(gl, src, kind)?,

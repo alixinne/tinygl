@@ -1,57 +1,33 @@
 use super::TargetType;
 use std::error;
-use std::fmt;
 
 use crate::compiler::WrappedShader;
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum Error {
-    Io(std::io::Error),
+    #[error("i/o error: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("compilation error: {1}")]
     CompilationError(usize, String),
+    #[error("invalid target type for current arch: {0:?}")]
     InvalidTargetType(TargetType),
+    #[error("cannot skip SPIR-V generation when the target is explicitely SPIR-V")]
     InvalidSkipSpirV,
+    #[error("spirv_cross error: {0:?}")]
     SpirVCrossError(spirv_cross::ErrorCode),
+    #[error(
+        "shader {0} was not wrapped before building the program, call Compiler::wrap_shader first"
+    )]
     UnwrappedShader(String),
+    #[error("program {0} was not wrapped before building the uniform set, call Compiler::wrap_program first")]
     UnwrappedProgram(String),
+    #[error("failed to wrap shader program: {reason}")]
     WrappingShaderFailed {
         reason: Box<dyn error::Error>,
         shader: WrappedShader,
     },
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Self::Io(error) => write!(f, "i/o error: {}", error),
-            Self::CompilationError(_num_errors, errors) => {
-                write!(f, "compilation error: {}", errors)
-            }
-            Self::InvalidTargetType(target_type) => {
-                write!(f, "invalid target type for current arch: {:?}", target_type)
-            }
-            Self::InvalidSkipSpirV => write!(
-                f,
-                "cannot skip SPIR-V generation when the target is explicitely SPIR-V"
-            ),
-            Self::SpirVCrossError(error) => write!(f, "spirv_cross error: {:?}", error),
-            Self::UnwrappedShader(name) => write!(f, "shader {} was not wrapped before building the program, call Compiler::wrap_shader first", name),
-            Self::UnwrappedProgram(name) => write!(f, "program {} was not wrapped before building the uniform set, call Compiler::wrap_program first", name),
-            Self::WrappingShaderFailed { reason, .. } => write!(f, "failed to wrap shader program: {}", reason)
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        // So we don't have to box everything
-        None
-    }
-}
-
-impl From<std::io::Error> for Error {
-    fn from(error: std::io::Error) -> Self {
-        Self::Io(error)
-    }
 }
 
 impl From<spirv_cross::ErrorCode> for Error {

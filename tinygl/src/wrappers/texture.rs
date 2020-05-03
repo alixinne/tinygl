@@ -5,9 +5,12 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(gl: &crate::Context) -> Result<Self, String> {
+    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
         Ok(Self {
-            name: unsafe { gl.create_texture() }?,
+            name: unsafe {
+                gl.create_texture()
+                    .map_err(|msg| crate::Error::TextureCreationFailed(msg))
+            }?,
         })
     }
 

@@ -6,7 +6,7 @@ pub fn build_src_shader(
     gl: &Context,
     src: &str,
     kind: u32,
-) -> Result<<glow::Context as HasContext>::Shader, String> {
+) -> crate::Result<<glow::Context as HasContext>::Shader> {
     unsafe {
         make_shader(gl, kind, |shader_name| {
             // Load the binary
@@ -22,7 +22,7 @@ pub fn build_src_shader(
 pub trait SourceShader<'a>: ShaderCommon {
     fn get_source() -> &'a str;
 
-    fn build(gl: &Context, kind: u32) -> Result<<glow::Context as HasContext>::Shader, String> {
+    fn build(gl: &Context, kind: u32) -> crate::Result<<glow::Context as HasContext>::Shader> {
         build_src_shader(gl, Self::get_source(), kind)
     }
 }

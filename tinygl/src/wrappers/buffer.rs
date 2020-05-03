@@ -5,9 +5,12 @@ pub struct Buffer {
 }
 
 impl Buffer {
-    pub fn new(gl: &crate::Context) -> Result<Self, String> {
+    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
         Ok(Self {
-            name: unsafe { gl.create_buffer() }?,
+            name: unsafe {
+                gl.create_buffer()
+                    .map_err(|msg| crate::Error::BufferCreationFailed(msg))
+            }?,
         })
     }
 
