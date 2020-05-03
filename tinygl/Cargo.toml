@@ -10,8 +10,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 glow = { git = "https://github.com/vtavernier/glow.git" }
-log = "0.4.8"
-backtrace = "0.3.46"
+log = "0.4"
+backtrace = "0.3"
 
 [build-dependencies]
-gl_generator = "0.14.0"
+gl_generator = "0.14"
