@@ -5,9 +5,6 @@ authors = ["Vincent Tavernier <vincent.tavernier@inria.fr>"]
 edition = "2018"
 license = "MIT"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [dependencies]
 glow = { git = "https://github.com/vtavernier/glow.git" }
 log = "0.4"
