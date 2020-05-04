@@ -80,7 +80,7 @@ impl<'s> WrappedProgram<'s> {
                 param_type = shader.shader_struct_name()
             )?;
         }
-        writeln!(wr, "              ) -> Result<Self, String> {{")?;
+        writeln!(wr, "              ) -> ::tinygl::Result<Self> {{")?;
         writeln!(
             wr,
             "        let program_name = ::tinygl::wrappers::RuntimeProgramBuilder::new(gl)"
@@ -105,7 +105,7 @@ impl<'s> WrappedProgram<'s> {
         // Write builder (constructs shaders and then calls the constructor)
         writeln!(
             wr,
-            "    pub fn build(gl: &::tinygl::Context) -> Result<Self, String> {{"
+            "    pub fn build(gl: &::tinygl::Context) -> ::tinygl::Result<Self> {{"
         )?;
         for shader in self.shaders() {
             writeln!(

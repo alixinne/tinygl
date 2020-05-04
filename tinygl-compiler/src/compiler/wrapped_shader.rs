@@ -192,7 +192,7 @@ impl WrappedShader {
         writeln!(wr, "impl {} {{", self.shader_struct_name())?;
         writeln!(
             wr,
-            "    pub fn build(gl: &::tinygl::Context) -> Result<Self, String> {{"
+            "    pub fn build(gl: &::tinygl::Context) -> ::tinygl::Result<Self> {{"
         )?;
         writeln!(
             wr,
