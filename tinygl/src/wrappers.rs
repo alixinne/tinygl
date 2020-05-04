@@ -20,6 +20,9 @@ pub use program::*;
 mod texture;
 pub use texture::*;
 
+mod vertex_array;
+pub use vertex_array::*;
+
 /// Trait for GL objects that can be dropped
 pub trait GlDrop {
     fn drop(&mut self, gl: &crate::Context);

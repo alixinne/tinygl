@@ -44,6 +44,8 @@ pub enum Error {
     ProgramCreationFailed(String),
     #[error("failed to link program: {0}")]
     ProgramLinkFailed(String),
+    #[error("vertex array creation failed: {0}")]
+    VertexArrayCreationFailed(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
