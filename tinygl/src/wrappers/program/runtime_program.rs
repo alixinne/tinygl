@@ -1,5 +1,5 @@
 use crate::context::HasContext;
-use crate::wrappers::ShaderCommon;
+use crate::wrappers::{GlDrop, ShaderCommon};
 use crate::Context;
 
 use super::ProgramCommon;
@@ -67,5 +67,11 @@ impl<'a> RuntimeProgramBuilder<'a> {
 
             Ok(RuntimeProgram { name: program_name })
         }
+    }
+}
+
+impl GlDrop for RuntimeProgram {
+    unsafe fn drop(&mut self, gl: &Context) {
+        gl.delete_program(self.name);
     }
 }

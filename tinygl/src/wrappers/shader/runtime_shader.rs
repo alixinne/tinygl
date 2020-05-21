@@ -1,4 +1,5 @@
 use crate::context::{Context, HasContext};
+use crate::wrappers::GlDrop;
 
 use super::ShaderCommon;
 
@@ -30,5 +31,11 @@ impl ShaderCommon for RuntimeShader {
     }
     fn name(&self) -> <glow::Context as HasContext>::Shader {
         self.name
+    }
+}
+
+impl GlDrop for RuntimeShader {
+    unsafe fn drop(&mut self, gl: &Context) {
+        gl.delete_shader(self.name);
     }
 }
