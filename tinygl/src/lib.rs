@@ -16,8 +16,7 @@ pub mod prelude {
     pub use super::gl::CheckGlErrorExt;
     pub use super::glow::HasContext;
 
-    pub use super::wrappers::ProgramCommon;
-    pub use super::wrappers::ShaderCommon;
+    pub use super::wrappers::prelude::*;
 
     #[cfg(not(target_arch = "wasm32"))]
     pub use super::wrappers::BinaryShader;

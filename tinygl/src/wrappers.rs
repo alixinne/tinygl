@@ -20,8 +20,13 @@ pub use program::*;
 mod texture;
 pub use texture::*;
 
+mod uniform_location;
+pub use uniform_location::*;
+
 mod vertex_array;
 pub use vertex_array::*;
+
+pub mod prelude;
 
 /// Trait for GL objects that can be dropped
 pub trait GlDrop {

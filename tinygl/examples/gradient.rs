@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use tinygl::gl;
 use tinygl::prelude::*;
 
@@ -85,8 +87,12 @@ fn main() -> Result<(), String> {
             .expect("failed to link program")
     };
 
+    let time = program.get_uniform_location(&gl, "iTime");
+
     // Use program
-    program.use_program(&gl);
+    unsafe {
+        program.use_program(&gl);
+    }
 
     // Build and bind an empty VAO
     let vao = tinygl::wrappers::VertexArray::new(&gl).expect("failed to create vertex array");
@@ -99,9 +105,10 @@ fn main() -> Result<(), String> {
             .expect("no avilable monitors"),
     ));
 
+    let start = Instant::now();
+
     el.run(move |event, _target, control_flow| {
-        // Default behavior: wait for events
-        *control_flow = ControlFlow::Wait;
+        //*control_flow = ControlFlow::Poll;
 
         match event {
             Event::LoopDestroyed => return,
@@ -148,6 +155,10 @@ fn main() -> Result<(), String> {
                     gl.clear_color(1.0, 0.0, 1.0, 1.0);
                     gl.clear(tinygl::gl::COLOR_BUFFER_BIT);
 
+                    // Set current time
+                    // TODO: Keep uniform location around
+                    time.set_f32(&gl, start.elapsed().as_secs_f32());
+
                     // Render
                     gl.draw_arrays(gl::TRIANGLES, 0, 3);
                 }
@@ -155,7 +166,7 @@ fn main() -> Result<(), String> {
                 windowed_context.swap_buffers().unwrap();
             }
             Event::RedrawEventsCleared => {
-                // windowed_context.window().request_redraw();
+                windowed_context.window().request_redraw();
             }
             _ => {}
         }
