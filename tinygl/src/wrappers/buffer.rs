@@ -24,7 +24,7 @@ impl Buffer {
 }
 
 impl super::GlDrop for Buffer {
-    fn drop(&mut self, gl: &crate::Context) {
-        unsafe { gl.delete_buffer(self.name) }
+    unsafe fn drop(&mut self, gl: &crate::Context) {
+        gl.delete_buffer(self.name);
     }
 }

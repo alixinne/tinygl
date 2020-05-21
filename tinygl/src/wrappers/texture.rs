@@ -24,7 +24,7 @@ impl Texture {
 }
 
 impl super::GlDrop for Texture {
-    fn drop(&mut self, gl: &crate::Context) {
-        unsafe { gl.delete_texture(self.name) }
+    unsafe fn drop(&mut self, gl: &crate::Context) {
+        gl.delete_texture(self.name);
     }
 }

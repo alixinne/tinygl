@@ -24,7 +24,7 @@ impl VertexArray {
 }
 
 impl super::GlDrop for VertexArray {
-    fn drop(&mut self, gl: &crate::Context) {
-        unsafe { gl.delete_vertex_array(self.name) }
+    unsafe fn drop(&mut self, gl: &crate::Context) {
+        gl.delete_vertex_array(self.name);
     }
 }

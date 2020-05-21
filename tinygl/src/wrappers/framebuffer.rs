@@ -96,7 +96,7 @@ impl Framebuffer {
 }
 
 impl super::GlDrop for Framebuffer {
-    fn drop(&mut self, gl: &crate::Context) {
-        unsafe { gl.delete_framebuffer(self.name) }
+    unsafe fn drop(&mut self, gl: &crate::Context) {
+        gl.delete_framebuffer(self.name);
     }
 }

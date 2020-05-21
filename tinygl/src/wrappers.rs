@@ -25,7 +25,7 @@ pub use vertex_array::*;
 
 /// Trait for GL objects that can be dropped
 pub trait GlDrop {
-    fn drop(&mut self, gl: &crate::Context);
+    unsafe fn drop(&mut self, gl: &crate::Context);
 }
 
 /// Handle to a GL object that will be cleaned up when this handle is dropped
@@ -52,7 +52,9 @@ impl<T: GlDrop> GlHandle<T> {
 impl<T: GlDrop> Drop for GlHandle<T> {
     fn drop(&mut self) {
         if let Some(mut res) = self.res.take() {
-            res.drop(self.gl.as_ref())
+            unsafe {
+                res.drop(self.gl.as_ref());
+            }
         }
     }
 }
@@ -104,7 +106,9 @@ impl<'gl, T: GlDrop> GlRefHandle<'gl, T> {
 impl<'gl, T: GlDrop> Drop for GlRefHandle<'gl, T> {
     fn drop(&mut self) {
         if let Some(mut res) = self.res.take() {
-            res.drop(self.gl)
+            unsafe {
+                res.drop(self.gl);
+            }
         }
     }
 }

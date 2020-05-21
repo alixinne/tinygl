@@ -24,7 +24,7 @@ impl Renderbuffer {
 }
 
 impl super::GlDrop for Renderbuffer {
-    fn drop(&mut self, gl: &crate::Context) {
-        unsafe { gl.delete_renderbuffer(self.name) }
+    unsafe fn drop(&mut self, gl: &crate::Context) {
+        gl.delete_renderbuffer(self.name);
     }
 }
