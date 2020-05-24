@@ -198,10 +198,10 @@ impl<'s> WrappedProgram<'s> {
             "impl ::tinygl::wrappers::GlDrop for {} {{",
             self.struct_name
         )?;
-        writeln!(wr, "    fn drop(&mut self, gl: &::tinygl::Context) {{")?;
+        writeln!(wr, "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{")?;
         writeln!(wr, "        use ::tinygl::HasContext;")?;
         writeln!(wr, "        use ::tinygl::wrappers::ProgramCommon;")?;
-        writeln!(wr, "        unsafe {{ gl.delete_program(self.name()) }};")?;
+        writeln!(wr, "        gl.delete_program(self.name());")?;
         writeln!(wr, "    }}")?;
         writeln!(wr, "}}")?;
 

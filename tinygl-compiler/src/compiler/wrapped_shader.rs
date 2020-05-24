@@ -317,9 +317,9 @@ impl WrappedShader {
             "impl ::tinygl::wrappers::GlDrop for {} {{",
             self.shader_struct_name()
         )?;
-        writeln!(wr, "    fn drop(&mut self, gl: &::tinygl::Context) {{")?;
+        writeln!(wr, "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{")?;
         writeln!(wr, "        use ::tinygl::prelude::*;")?;
-        writeln!(wr, "        unsafe {{ gl.delete_shader(self.name()) }};")?;
+        writeln!(wr, "        gl.delete_shader(self.name());")?;
         writeln!(wr, "    }}")?;
         writeln!(wr, "}}")?;
 
