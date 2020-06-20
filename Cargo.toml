@@ -2,4 +2,5 @@
 members = [
         "tinygl",
         "tinygl-compiler",
+        "xtask",
 ]

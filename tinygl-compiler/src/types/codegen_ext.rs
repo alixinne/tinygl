@@ -7,6 +7,7 @@ use super::*;
 pub struct ExtraArg {
     pub name: &'static str,
     pub ty: &'static str,
+    pub val: &'static str,
 }
 
 pub trait CodegenExt {
@@ -17,6 +18,7 @@ pub trait CodegenExt {
     fn rust_primitive_type(&self) -> &'static str;
     fn uniform_method_name(&self) -> String;
     fn uniform_method_extra_args(&self) -> &[ExtraArg];
+    fn uniform_count_arg(&self) -> String;
 
     fn uniform_method_extra_args_with_ty(&self) -> Option<String> {
         let args = self.uniform_method_extra_args();
@@ -40,6 +42,21 @@ pub trait CodegenExt {
             Some(
                 args.iter()
                     .map(|arg| arg.name)
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            )
+        } else {
+            None
+        }
+    }
+
+    fn uniform_method_extra_args_val(&self) -> Option<String> {
+        let args = self.uniform_method_extra_args();
+
+        if args.len() > 0 {
+            Some(
+                args.iter()
+                    .map(|arg| arg.val)
                     .collect::<Vec<_>>()
                     .join(", "),
             )
@@ -95,11 +112,25 @@ impl CodegenExt for AtomType {
     }
 
     fn uniform_method_name(&self) -> String {
-        format!("1_{}", self.rust_primitive_type())
+        format!(
+            "1{}",
+            match self {
+                Self::Int => "i",
+                Self::Float => "f",
+                Self::Double => "d",
+                Self::UInt => "ui",
+                // TODO: Check how to handle bool
+                Self::Bool => "i",
+            }
+        )
     }
 
     fn uniform_method_extra_args(&self) -> &[ExtraArg] {
         &[]
+    }
+
+    fn uniform_count_arg(&self) -> String {
+        String::new()
     }
 }
 
@@ -130,14 +161,25 @@ impl CodegenExt for VectorType {
 
     fn uniform_method_name(&self) -> String {
         format!(
-            "{}_{}",
+            "{}{}v",
             self.components,
-            self.base_type.rust_primitive_type()
+            match self.base_type {
+                AtomType::Int => "i",
+                AtomType::Float => "f",
+                AtomType::Double => "d",
+                AtomType::UInt => "ui",
+                // TODO: Check how to handle bool
+                AtomType::Bool => "iv",
+            }
         )
     }
 
     fn uniform_method_extra_args(&self) -> &[ExtraArg] {
         &[]
+    }
+
+    fn uniform_count_arg(&self) -> String {
+        "1, ".to_owned()
     }
 }
 
@@ -167,14 +209,28 @@ impl CodegenExt for MatrixType {
     }
 
     fn uniform_method_name(&self) -> String {
-        format!("matrix_{}_{}", self.n, self.rust_primitive_type())
+        format!(
+            "_matrix{}{}v",
+            self.n,
+            match self.base_type {
+                AtomType::Float => "f",
+                AtomType::Double => "d",
+                // No matrices of other types
+                _ => "",
+            }
+        )
     }
 
     fn uniform_method_extra_args(&self) -> &[ExtraArg] {
         &[ExtraArg {
             name: "transpose",
             ty: "bool",
+            val: "transpose as u8",
         }]
+    }
+
+    fn uniform_count_arg(&self) -> String {
+        "1, ".to_owned()
     }
 }
 
@@ -234,6 +290,14 @@ impl CodegenExt for GenericType {
             Self::Matrix(matrix) => matrix.uniform_method_extra_args(),
         }
     }
+
+    fn uniform_count_arg(&self) -> String {
+        match self {
+            Self::Atom(atom) => atom.uniform_count_arg(),
+            Self::Vector(vector) => vector.uniform_count_arg(),
+            Self::Matrix(matrix) => matrix.uniform_count_arg(),
+        }
+    }
 }
 
 impl CodegenExt for ItemOrArrayType {
@@ -283,6 +347,13 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.uniform_method_extra_args(),
             Self::Array(item, _size) => item.uniform_method_extra_args(),
+        }
+    }
+
+    fn uniform_count_arg(&self) -> String {
+        match self {
+            Self::Item(item) => item.uniform_count_arg(),
+            Self::Array(_, size) => format!("{}, ", size),
         }
     }
 }

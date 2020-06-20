@@ -106,24 +106,11 @@ impl GenericType {
         }
     }
 
-    fn components(&self) -> u32 {
+    fn uniform_value(&self, name: &str) -> String {
         match self {
-            Self::Atom(_) => 1,
-            Self::Vector(vector) => vector.components,
-            Self::Matrix(matrix) => matrix.n * matrix.n,
-        }
-    }
-
-    fn glow_value(&self, name: &str) -> String {
-        match self {
-            Self::Atom(_) => format!("&[{}]", name),
-            Self::Vector(_) => format!("{}.as_ref()", name),
-            Self::Matrix(inner) => format!(
-                "::std::mem::transmute::<_, &[{ty}; {n}]>({name}.as_ref())",
-                name = name,
-                ty = inner.rust_primitive_type(),
-                n = inner.n * inner.n
-            ),
+            Self::Atom(_) => format!("{}", name),
+            Self::Vector(_) => format!("{}.as_ref().as_ptr()", name),
+            Self::Matrix(_) => format!("{}.as_ref().as_ptr() as *const _", name),
         }
     }
 }
@@ -178,22 +165,10 @@ impl ItemOrArrayType {
         }
     }
 
-    fn components(&self) -> u32 {
+    pub fn uniform_value(&self, name: &str) -> String {
         match self {
-            Self::Item(_) => 1,
-            Self::Array(inner_type, _) => inner_type.components(),
-        }
-    }
-
-    pub fn glow_value(&self, name: &str) -> String {
-        match self {
-            Self::Item(inner) => inner.glow_value(name),
-            Self::Array(inner_type, size) => format!(
-                "::std::slice::from_raw_parts({name}.as_ptr() as *const {base_ty}, {size})",
-                name = name,
-                size = *size * self.components(),
-                base_ty = inner_type.rust_primitive_type()
-            ),
+            Self::Item(inner) => inner.uniform_value(name),
+            Self::Array(_, _) => format!("{}.as_ref().as_ptr()", name),
         }
     }
 }

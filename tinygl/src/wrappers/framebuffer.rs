@@ -1,102 +1,21 @@
-use crate::context::HasContext;
+use crate::OpenGlErrorCode;
 
 pub struct Framebuffer {
-    name: <glow::Context as HasContext>::Framebuffer,
+    name: crate::gl::Framebuffer,
 }
 
 impl Framebuffer {
-    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
-        Ok(Self {
-            name: unsafe {
-                gl.create_framebuffer()
-                    .map_err(|msg| crate::Error::FramebufferCreationFailed(msg))
-            }?,
-        })
-    }
+    impl_nnew!(
+        FramebufferCreationFailed,
+        create_framebuffers,
+        create_framebuffer
+    );
 
-    pub fn name(&self) -> <glow::Context as HasContext>::Framebuffer {
-        self.name
-    }
+    impl_name!(pub crate::gl::FramebufferName);
 
-    pub fn bind(&self, gl: &crate::Context, target: u32) {
-        unsafe { gl.bind_framebuffer(target, Some(self.name)) }
-    }
-
-    pub fn renderbuffer(
-        &self,
-        gl: &crate::Context,
-        target: u32,
-        attachment: u32,
-        renderbuffer: Option<&super::Renderbuffer>,
-    ) {
-        unsafe {
-            gl.framebuffer_renderbuffer(
-                target,
-                attachment,
-                crate::gl::RENDERBUFFER,
-                renderbuffer.map(|rb| rb.name()),
-            );
-        }
-    }
-
-    pub fn texture(
-        &self,
-        gl: &crate::Context,
-        target: u32,
-        attachment: u32,
-        texture: Option<&super::Texture>,
-        level: i32,
-    ) {
-        unsafe {
-            gl.framebuffer_texture(target, attachment, texture.map(|rb| rb.name()), level);
-        }
-    }
-
-    pub fn texture_2d(
-        &self,
-        gl: &crate::Context,
-        target: u32,
-        attachment: u32,
-        texture_target: u32,
-        texture: Option<&super::Texture>,
-        level: i32,
-    ) {
-        unsafe {
-            gl.framebuffer_texture_2d(
-                target,
-                attachment,
-                texture_target,
-                texture.map(|rb| rb.name()),
-                level,
-            );
-        }
-    }
-
-    pub fn texture_3d(
-        &self,
-        gl: &crate::Context,
-        target: u32,
-        attachment: u32,
-        texture_target: u32,
-        texture: Option<&super::Texture>,
-        level: i32,
-        layer: i32,
-    ) {
-        unsafe {
-            gl.framebuffer_texture_3d(
-                target,
-                attachment,
-                texture_target,
-                texture.map(|rb| rb.name()),
-                level,
-                layer,
-            );
-        }
+    pub unsafe fn bind(&self, gl: &crate::Context, target: u32) {
+        gl.bind_framebuffer(target, Some(self));
     }
 }
 
-impl super::GlDrop for Framebuffer {
-    unsafe fn drop(&mut self, gl: &crate::Context) {
-        gl.delete_framebuffer(self.name);
-    }
-}
+impl_ndrop!(Framebuffer, delete_framebuffers, delete_framebuffer);

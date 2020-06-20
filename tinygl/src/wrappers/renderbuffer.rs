@@ -1,30 +1,21 @@
-use crate::context::HasContext;
+use crate::OpenGlErrorCode;
 
 pub struct Renderbuffer {
-    name: <glow::Context as HasContext>::Renderbuffer,
+    name: crate::gl::Renderbuffer,
 }
 
 impl Renderbuffer {
-    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
-        Ok(Self {
-            name: unsafe {
-                gl.create_renderbuffer()
-                    .map_err(|msg| crate::Error::RenderbufferCreationFailed(msg))
-            }?,
-        })
-    }
+    impl_nnew!(
+        RenderbufferCreationFailed,
+        create_renderbuffers,
+        create_renderbuffer
+    );
 
-    pub fn name(&self) -> <glow::Context as HasContext>::Renderbuffer {
-        self.name
-    }
+    impl_name!(pub crate::gl::RenderbufferName);
 
-    pub fn bind(&self, gl: &crate::Context) {
-        unsafe { gl.bind_renderbuffer(crate::gl::RENDERBUFFER, Some(self.name)) };
+    pub unsafe fn bind(&self, gl: &crate::Context) {
+        gl.bind_renderbuffer(crate::gl::RENDERBUFFER, Some(self));
     }
 }
 
-impl super::GlDrop for Renderbuffer {
-    unsafe fn drop(&mut self, gl: &crate::Context) {
-        gl.delete_renderbuffer(self.name);
-    }
-}
+impl_ndrop!(Renderbuffer, delete_renderbuffers, delete_renderbuffer);

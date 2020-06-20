@@ -1,22 +1,27 @@
-use crate::context::HasContext;
 use crate::wrappers::{GlDrop, ShaderCommon};
-use crate::Context;
+use crate::{Context, OpenGlErrorCode};
 
 use super::ProgramCommon;
 
 pub struct RuntimeProgram {
-    name: <glow::Context as HasContext>::Program,
+    name: crate::gl::Program,
 }
 
 impl RuntimeProgram {
-    pub fn into_inner(self) -> <glow::Context as HasContext>::Program {
+    pub fn into_inner(self) -> crate::gl::Program {
         self.name
     }
 }
 
 impl ProgramCommon for RuntimeProgram {
-    fn name(&self) -> <glow::Context as HasContext>::Program {
+    #[cfg(not(target_arch = "wasm32"))]
+    fn name(&self) -> crate::gl::ProgramName {
         self.name
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn name(&self) -> crate::gl::ProgramName {
+        &self.name
     }
 }
 
@@ -40,38 +45,47 @@ impl<'a> RuntimeProgramBuilder<'a> {
 
     pub fn build(self) -> crate::Result<RuntimeProgram> {
         unsafe {
-            let program_name = self
-                .gl
-                .create_program()
-                .map_err(|msg| crate::Error::ProgramCreationFailed(msg))?;
+            let mut program = RuntimeProgram {
+                name: self.gl.create_program().ok_or_else(|| {
+                    crate::Error::ProgramCreationFailed(OpenGlErrorCode(self.gl.get_error()))
+                })?,
+            };
 
             // Attach shaders
             for shader in &self.shaders {
-                self.gl.attach_shader(program_name, shader.name());
+                self.gl.attach_shader(program.name(), shader.name());
             }
 
             // Link program
-            self.gl.link_program(program_name);
+            self.gl.link_program(program.name());
 
             // Detach shaders
             for shader in &self.shaders {
-                self.gl.detach_shader(program_name, shader.name());
+                self.gl.detach_shader(program.name(), shader.name());
             }
 
             // Check link status
-            if !self.gl.get_program_link_status(program_name) {
-                let error = self.gl.get_program_info_log(program_name);
-                self.gl.delete_program(program_name);
-                return Err(crate::Error::ProgramLinkFailed(error));
+            if !self.gl.get_program_link_status(program.name()) {
+                let error = self.gl.get_program_info_log(program.name());
+                program.drop(self.gl);
+                return Err(crate::Error::ProgramLinkFailed(
+                    error.unwrap_or_else(String::new),
+                ));
             }
 
-            Ok(RuntimeProgram { name: program_name })
+            Ok(program)
         }
     }
 }
 
 impl GlDrop for RuntimeProgram {
+    #[cfg(not(target_arch = "wasm32"))]
     unsafe fn drop(&mut self, gl: &Context) {
         gl.delete_program(self.name);
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    unsafe fn drop(&mut self, gl: &Context) {
+        gl.delete_program(Some(&self.name));
     }
 }

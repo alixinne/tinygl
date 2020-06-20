@@ -1,15 +1,15 @@
-use crate::context::{Context, HasContext};
 use crate::wrappers::GlDrop;
+use crate::Context;
 
 use super::ShaderCommon;
 
 pub struct RuntimeShader {
     kind: u32,
-    name: <glow::Context as HasContext>::Shader,
+    name: crate::gl::Shader,
 }
 
 impl RuntimeShader {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "opengl46"))]
     pub fn build_bin(gl: &Context, binary: &[u8], kind: u32) -> crate::Result<Self> {
         Ok(Self {
             kind,
@@ -29,13 +29,18 @@ impl ShaderCommon for RuntimeShader {
     fn kind(&self) -> u32 {
         self.kind
     }
-    fn name(&self) -> <glow::Context as HasContext>::Shader {
-        self.name
-    }
+
+    impl_name!(crate::gl::ShaderName);
 }
 
 impl GlDrop for RuntimeShader {
+    #[cfg(not(target_arch = "wasm32"))]
     unsafe fn drop(&mut self, gl: &Context) {
         gl.delete_shader(self.name);
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    unsafe fn drop(&mut self, gl: &Context) {
+        gl.delete_shader(Some(&self.name));
     }
 }

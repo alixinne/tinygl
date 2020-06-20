@@ -8,8 +8,7 @@ use glutin::event_loop::{ControlFlow, EventLoop};
 use glutin::window::{Fullscreen, WindowBuilder};
 use glutin::ContextBuilder;
 
-const VERTEX_SHADER: &'static str = r#"
-#version 460 core
+const VERTEX_SHADER: &'static str = r#"#version 450 core
 
 layout(location = 0) out vec2 fragCoord;
 
@@ -19,8 +18,7 @@ void main() {
 }
 "#;
 
-const FRAGMENT_SHADER: &'static str = r#"
-#version 460 core
+const FRAGMENT_SHADER: &'static str = r#"#version 450 core
 
 layout(location = 0) in vec2 fragCoord;
 layout(location = 0) out vec4 fragColor;
@@ -47,7 +45,10 @@ fn main() -> Result<(), String> {
         .with_inner_size(glutin::dpi::LogicalSize::new(768.0, 768.0));
 
     let windowed_context = ContextBuilder::new()
-        .with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (4, 6)))
+        .with_gl(glutin::GlRequest::Specific(
+            glutin::Api::OpenGl,
+            tinygl::opengl_version(),
+        ))
         .with_gl_profile(glutin::GlProfile::Core)
         .with_gl_debug_flag(true)
         .with_vsync(true)
@@ -96,7 +97,9 @@ fn main() -> Result<(), String> {
 
     // Build and bind an empty VAO
     let vao = tinygl::wrappers::VertexArray::new(&gl).expect("failed to create vertex array");
-    vao.bind(&gl);
+    unsafe {
+        vao.bind(&gl);
+    }
 
     // Monitors
     let fullscreen = Some(Fullscreen::Borderless(

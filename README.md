@@ -8,6 +8,11 @@ tinygl is an environment to create OpenGL programs in Rust with:
 
 This is a project currently under heavy development, do not expect any kind of stability for a while.
 
+## Building
+
+* (Optional) Re-generate OpenGL desktop bindings using `cargo xtask gen-bindings`
+* `cargo build`
+
 ## Authors
 
 Vincent Tavernier <vince.tavernier@gmail.com>

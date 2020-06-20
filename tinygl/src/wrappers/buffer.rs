@@ -1,30 +1,17 @@
-use crate::context::HasContext;
+use crate::OpenGlErrorCode;
 
 pub struct Buffer {
-    name: <glow::Context as HasContext>::Buffer,
+    name: crate::gl::Buffer,
 }
 
 impl Buffer {
-    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
-        Ok(Self {
-            name: unsafe {
-                gl.create_buffer()
-                    .map_err(|msg| crate::Error::BufferCreationFailed(msg))
-            }?,
-        })
-    }
+    impl_nnew!(BufferCreationFailed, create_buffers, create_buffer);
 
-    pub fn name(&self) -> <glow::Context as HasContext>::Buffer {
-        self.name
-    }
+    impl_name!(pub crate::gl::BufferName);
 
-    pub fn bind(&self, gl: &crate::Context, target: u32) {
-        unsafe { gl.bind_buffer(target, Some(self.name)) };
+    pub unsafe fn bind(&self, gl: &crate::Context, target: u32) {
+        gl.bind_buffer(target, Some(self));
     }
 }
 
-impl super::GlDrop for Buffer {
-    unsafe fn drop(&mut self, gl: &crate::Context) {
-        gl.delete_buffer(self.name);
-    }
-}
+impl_ndrop!(Buffer, delete_buffers, delete_buffer);

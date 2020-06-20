@@ -1,24 +1,25 @@
-#[cfg(not(target_arch = "wasm32"))]
-pub(crate) mod glowx;
-
-mod context;
-pub use context::*;
-
 mod error;
 pub use error::*;
 
 pub mod gl;
+pub use gl::Context;
+
 pub mod wrappers;
 
-pub use glow;
-
 pub mod prelude {
-    pub use super::gl::CheckGlErrorExt;
-    pub use super::glow::HasContext;
-
     pub use super::wrappers::prelude::*;
+}
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub use super::wrappers::BinaryShader;
-    pub use super::wrappers::SourceShader;
+pub fn opengl_version() -> (u8, u8) {
+    if cfg!(target_arch = "wasm32") {
+        (2, 0)
+    } else if cfg!(feature = "opengl46") {
+        (4, 6)
+    } else if cfg!(feature = "opengl45") {
+        (4, 5)
+    } else if cfg!(feature = "opengl44") {
+        (4, 4)
+    } else {
+        unreachable!()
+    }
 }

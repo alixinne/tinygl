@@ -1,30 +1,17 @@
-use crate::context::HasContext;
+use crate::OpenGlErrorCode;
 
 pub struct Texture {
-    name: <glow::Context as HasContext>::Texture,
+    name: crate::gl::Texture,
 }
 
 impl Texture {
-    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
-        Ok(Self {
-            name: unsafe {
-                gl.create_texture()
-                    .map_err(|msg| crate::Error::TextureCreationFailed(msg))
-            }?,
-        })
-    }
+    impl_nnew!(TextureCreationFailed, gen_textures, create_texture);
 
-    pub fn name(&self) -> <glow::Context as HasContext>::Texture {
-        self.name
-    }
+    impl_name!(pub crate::gl::TextureName);
 
-    pub fn bind(&self, gl: &crate::Context, target: u32) {
-        unsafe { gl.bind_texture(target, Some(self.name)) };
+    pub unsafe fn bind(&self, gl: &crate::Context, target: u32) {
+        gl.bind_texture(target, Some(self));
     }
 }
 
-impl super::GlDrop for Texture {
-    unsafe fn drop(&mut self, gl: &crate::Context) {
-        gl.delete_texture(self.name);
-    }
-}
+impl_ndrop!(Texture, delete_textures, delete_texture);

@@ -1,30 +1,21 @@
-use crate::context::HasContext;
+use crate::OpenGlErrorCode;
 
 pub struct VertexArray {
-    name: <glow::Context as HasContext>::VertexArray,
+    name: crate::gl::VertexArray,
 }
 
 impl VertexArray {
-    pub fn new(gl: &crate::Context) -> crate::Result<Self> {
-        Ok(Self {
-            name: unsafe {
-                gl.create_vertex_array()
-                    .map_err(|msg| crate::Error::VertexArrayCreationFailed(msg))
-            }?,
-        })
-    }
+    impl_nnew!(
+        VertexArrayCreationFailed,
+        create_vertex_arrays,
+        create_vertex_array
+    );
 
-    pub fn name(&self) -> <glow::Context as HasContext>::VertexArray {
-        self.name
-    }
+    impl_name!(pub crate::gl::VertexArrayName);
 
-    pub fn bind(&self, gl: &crate::Context) {
-        unsafe { gl.bind_vertex_array(Some(self.name)) };
+    pub unsafe fn bind(&self, gl: &crate::Context) {
+        gl.bind_vertex_array(Some(self));
     }
 }
 
-impl super::GlDrop for VertexArray {
-    unsafe fn drop(&mut self, gl: &crate::Context) {
-        gl.delete_vertex_array(self.name);
-    }
-}
+impl_ndrop!(VertexArray, delete_vertex_arrays, delete_vertex_array);

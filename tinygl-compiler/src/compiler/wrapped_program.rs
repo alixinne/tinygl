@@ -53,10 +53,7 @@ impl<'s> WrappedProgram<'s> {
 
         writeln!(wr, "pub struct {} {{", self.struct_name)?;
         // Program name handle
-        writeln!(
-            wr,
-            "    name: <::tinygl::glow::Context as ::tinygl::HasContext>::Program,"
-        )?;
+        writeln!(wr, "    name: ::tinygl::gl::Program,")?;
         // Write uniform handles
         for shader in self.shaders_with_uniforms() {
             writeln!(
@@ -152,7 +149,7 @@ impl<'s> WrappedProgram<'s> {
 
                 writeln!(
                     wr,
-                    "        self.{location_name}.set_{uniform_sc_name}(gl, {extra}value);",
+                    "        self.{location_name}.set_{uniform_sc_name}(gl, self.name, {extra}value);",
                     location_name = shader.uniform_locations_name(),
                     uniform_sc_name = uniform.name.to_snake_case(),
                     extra = ty
@@ -184,10 +181,7 @@ impl<'s> WrappedProgram<'s> {
             self.struct_name
         )?;
         // Name getter
-        writeln!(
-            wr,
-            "    fn name(&self) -> <::tinygl::glow::Context as ::tinygl::HasContext>::Program {{"
-        )?;
+        writeln!(wr, "    fn name(&self) -> ::tinygl::gl::Program {{")?;
         writeln!(wr, "        self.name")?;
         writeln!(wr, "    }}")?;
         writeln!(wr, "}}")?;
@@ -198,8 +192,10 @@ impl<'s> WrappedProgram<'s> {
             "impl ::tinygl::wrappers::GlDrop for {} {{",
             self.struct_name
         )?;
-        writeln!(wr, "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{")?;
-        writeln!(wr, "        use ::tinygl::HasContext;")?;
+        writeln!(
+            wr,
+            "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{"
+        )?;
         writeln!(wr, "        use ::tinygl::wrappers::ProgramCommon;")?;
         writeln!(wr, "        gl.delete_program(self.name());")?;
         writeln!(wr, "    }}")?;

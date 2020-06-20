@@ -2,6 +2,9 @@
 
 use std::rc::Rc;
 
+#[macro_use]
+mod macros;
+
 mod buffer;
 pub use buffer::*;
 

@@ -183,10 +183,7 @@ impl WrappedShader {
         // Shader resource structure
         writeln!(wr, "/// {} Rust wrapper", self.shader)?;
         writeln!(wr, "pub struct {} {{", self.shader_struct_name())?;
-        writeln!(
-            wr,
-            "    name: <::tinygl::glow::Context as ::tinygl::HasContext>::Shader,"
-        )?;
+        writeln!(wr, "    name: ::tinygl::gl::Shader,")?;
         writeln!(wr, "}}")?;
 
         writeln!(wr, "impl {} {{", self.shader_struct_name())?;
@@ -212,8 +209,11 @@ impl WrappedShader {
         writeln!(wr, "pub struct {} {{", self.uniform_struct_name())?;
 
         for uniform in &self.uniforms {
-            writeln!(wr, "    {name}: Option<<::tinygl::glow::Context as ::tinygl::glow::HasContext>::UniformLocation>,",
-                name = uniform.location_name())?;
+            writeln!(
+                wr,
+                "    {name}: Option<::tinygl::gl::UniformLocation>,",
+                name = uniform.location_name()
+            )?;
         }
         writeln!(wr, "}}")?;
 
@@ -221,7 +221,7 @@ impl WrappedShader {
         // Write constructor
         writeln!(
             wr,
-            "    pub fn new({prefix}gl: &::tinygl::Context, {prefix}program: <::tinygl::glow::Context as ::tinygl::glow::HasContext>::Program) -> Self {{",
+            "    pub fn new({prefix}gl: &::tinygl::Context, {prefix}program: ::tinygl::gl::Program) -> Self {{",
             prefix = if self.output_type.is_source() {
                 if self.uniforms.is_empty() {
                     "_"
@@ -231,9 +231,6 @@ impl WrappedShader {
             } else {
                 "_"
             })?;
-        if self.output_type.is_source() && !self.uniforms.is_empty() {
-            writeln!(wr, "        use ::tinygl::HasContext;")?;
-        }
         writeln!(wr, "        Self {{")?;
 
         for uniform in &self.uniforms {
@@ -273,21 +270,20 @@ impl WrappedShader {
 
             writeln!(
                 wr,
-                "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, {extra}value: {type_name}) {{",
+                "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, program: ::tinygl::gl::ProgramName, {extra}value: {type_name}) {{",
                 uniform_sc_name = uniform.name.to_snake_case(),
                 type_name = ty.rust_value_type(),
                 extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
             )?;
 
-            writeln!(wr, "        use ::tinygl::HasContext;")?;
-
             writeln!(
                 wr,
-                "        unsafe {{ gl.uniform_{prefix}_slice(self.{location}.as_ref(), {extra}{what}) }};",
+                "        if let Some(location) = self.{location} {{ unsafe {{ gl.program_uniform{prefix}(program, location, {count}{extra}{what}) }}; }}",
                 prefix = ty.uniform_method_name(),
+                count = ty.uniform_count_arg(),
                 location = uniform.location_name(),
-                what = ty.glow_value("value"),
-                extra = ty.uniform_method_extra_args_no_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
+                what = ty.uniform_value("value"),
+                extra = ty.uniform_method_extra_args_val().map_or_else(|| String::new(), |x| format!("{}, ", x)),
             )?;
 
             writeln!(wr, "    }}")?;
@@ -303,10 +299,7 @@ impl WrappedShader {
         writeln!(wr, "    fn kind(&self) -> u32 {{")?;
         writeln!(wr, "        ::tinygl::gl::{}", self.kind.constant_name)?;
         writeln!(wr, "    }}")?;
-        writeln!(
-            wr,
-            "    fn name(&self) -> <::tinygl::glow::Context as ::tinygl::HasContext>::Shader {{"
-        )?;
+        writeln!(wr, "    fn name(&self) -> ::tinygl::gl::Shader {{")?;
         writeln!(wr, "        self.name")?;
         writeln!(wr, "    }}")?;
         writeln!(wr, "}}")?;
@@ -317,7 +310,10 @@ impl WrappedShader {
             "impl ::tinygl::wrappers::GlDrop for {} {{",
             self.shader_struct_name()
         )?;
-        writeln!(wr, "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{")?;
+        writeln!(
+            wr,
+            "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{"
+        )?;
         writeln!(wr, "        use ::tinygl::prelude::*;")?;
         writeln!(wr, "        gl.delete_shader(self.name());")?;
         writeln!(wr, "    }}")?;

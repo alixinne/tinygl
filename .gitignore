@@ -1,3 +1,3 @@
-/target
+target/
 Manifest.toml
 Cargo.lock
