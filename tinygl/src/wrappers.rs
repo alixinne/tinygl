@@ -20,6 +20,11 @@ pub use shader::*;
 mod program;
 pub use program::*;
 
+#[cfg(not(target_arch = "wasm32"))]
+mod query;
+#[cfg(not(target_arch = "wasm32"))]
+pub use query::*;
+
 mod texture;
 pub use texture::*;
 

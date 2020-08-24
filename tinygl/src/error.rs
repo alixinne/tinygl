@@ -46,6 +46,8 @@ pub enum Error {
     ProgramCreationFailed(#[source] OpenGlErrorCode),
     #[error("failed to link program: {0}")]
     ProgramLinkFailed(String),
+    #[error("query creation failed: {0}")]
+    QueryCreationFailed(#[source] OpenGlErrorCode),
     #[error("vertex array creation failed: {0}")]
     VertexArrayCreationFailed(#[source] OpenGlErrorCode),
 }
