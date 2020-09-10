@@ -18,12 +18,8 @@ impl<T: ProgramCommon> ProgramCommonExt for T {
         use std::ffi::CString;
 
         UniformLocation::new(self.name(), unsafe {
-            let loc = gl.get_uniform_location(
-                self.name(),
-                CString::new(name)
-                    .expect("invalid location identifier")
-                    .as_ptr(),
-            );
+            let name = CString::new(name).expect("invalid location identifier");
+            let loc = gl.get_uniform_location(self.name(), name.as_ptr());
 
             if loc < 0 {
                 None
