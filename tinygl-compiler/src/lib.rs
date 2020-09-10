@@ -1,10 +1,13 @@
+#[macro_use]
+extern crate thiserror;
+
 mod compiler;
 mod errors;
-mod reflect;
+pub mod model;
+pub mod reflect;
 mod shader_kind;
 pub mod types;
 
 pub use compiler::*;
 pub use errors::*;
-pub use reflect::*;
-pub use shaderc::ShaderKind;
+pub use shader_kind::ShaderKind;

@@ -1,7 +1,9 @@
+use tinygl_compiler::{model::GlslObject, reflect, Result, ShaderKind};
+
 fn find<'p>(
     program: &'p tinygl_compiler::WrappedProgram,
     uniform_name: &str,
-) -> Option<&'p tinygl_compiler::FoundUniform> {
+) -> Option<&'p tinygl_compiler::reflect::FoundUniform> {
     program
         .shaders()
         .flat_map(|shader| shader.uniforms().iter())
@@ -10,28 +12,35 @@ fn find<'p>(
 
 #[test]
 #[allow(unused_variables)]
-fn uniform_reflect() {
-    let mut compiler = tinygl_codegen::CompilerBuilder::new()
-        .build()
-        .expect("failed to build compiler");
+fn uniform_reflect() -> Result<()> {
+    let mut compiler = tinygl_codegen::Compiler::new(true, None)?.with_shaderc();
 
-    let vert_shader = compiler
-        .wrap_shader_source(
-            include_str!("../../shaders/quad.vert"),
-            tinygl_compiler::ShaderKind::Vertex,
-        )
-        .expect("failed to compile vertex shader");
+    let backend = reflect::SpirVBackend::new();
 
-    let frag_shader = compiler
-        .wrap_shader_source(
-            include_str!("../../shaders/uniform_reflect.frag"),
-            tinygl_compiler::ShaderKind::Fragment,
-        )
-        .expect("failed to compile fragment shader");
+    // Prepare shaders by compiling to SPIR-V and reflecting
+    let vert_shader =
+        GlslObject::from_str(include_str!("../../shaders/quad.vert"), ShaderKind::Vertex)?
+            .compile(&mut compiler)?
+            .reflect_spirv(&backend)?;
 
-    let program = compiler
-        .wrap_program(&[&vert_shader, &frag_shader], "program")
-        .expect("failed to wrap program");
+    let frag_shader = GlslObject::from_str(
+        include_str!("../../shaders/uniform_reflect.frag"),
+        ShaderKind::Fragment,
+    )?
+    .compile(&mut compiler)?
+    .reflect_spirv(&backend)?;
+
+    // Wrap the shaders
+    let vert_shader = compiler.wrap_shader(vert_shader, true)?;
+
+    let frag_shader = compiler.wrap_shader(frag_shader, true)?;
+
+    // Wrap program
+    let program = compiler.wrap_program(&[&vert_shader, &frag_shader], "program")?;
+
+    for s in program.shaders() {
+        eprintln!("{:?}", s.uniforms());
+    }
 
     let uniform_names = [
         "testFloat",
@@ -113,7 +122,11 @@ fn uniform_reflect() {
     ];
 
     for uniform_name in uniform_names.iter() {
-        assert!(find(&program, uniform_name).is_some());
+        assert!(
+            find(&program, uniform_name).is_some(),
+            "missing uniform: {}",
+            uniform_name
+        );
     }
 
     let set = compiler
@@ -123,6 +136,7 @@ fn uniform_reflect() {
     tinygl_codegen::write(
         std::env::temp_dir().join("shaders.rs"),
         &[&vert_shader, &frag_shader, &program, &set],
-    )
-    .expect("failed to write code")
+    )?;
+
+    Ok(())
 }

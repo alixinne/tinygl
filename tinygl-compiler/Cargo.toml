@@ -6,11 +6,20 @@ edition = "2018"
 license = "MIT"
 
 [dependencies]
-shaderc = "0.6"
 heck = "0.3"
-spirv_cross = { version = "0.18", features = ["glsl"] }
-rspirv = { git = "https://github.com/gfx-rs/rspirv.git", rev = "5025ac0" }
-spirv_headers = { git = "https://github.com/gfx-rs/rspirv.git", rev = "5025ac0" }
 sha2 = "0.8"
 base64 = "0.12"
 thiserror = "1.0"
+
+shaderc = { optional = true, version = "0.6" }
+
+rspirv = { optional = true, version = "0.7" }
+spirv_cross = { optional = true, version = "0.18", features = ["glsl"] }
+spirv_headers = { optional = true, version = "1.5" }
+
+glsl = "5"
+
+[features]
+backend-shaderc = ["shaderc", "spirv"]
+transpile = ["spirv_cross", "spirv"]
+spirv = ["spirv_headers", "rspirv"]

@@ -2,53 +2,72 @@ use heck::SnakeCase;
 
 use quote::{format_ident, quote};
 
-use tinygl_compiler::{TargetType, WrappedShader};
+use tinygl_compiler::{model::AsOutputFormat, WrappedShader, WrappedShaderDetails};
 
 use super::WrappedItem;
 use crate::types::{CodegenExt, UniformValueExt};
 
-impl WrappedItem for WrappedShader {
+fn filter_src<T: AsOutputFormat>(this: &WrappedShader<T>) -> String {
+    use std::fmt::Write;
+
+    // We skipped SPIR-V generation so just fix invalid stuff for OpenGL ES targets
+    // WebGL is more sensitive to leftovers from includes and stuff
+    // TODO: This is an ugly hack, maybe forbid skip_spirv + ES 3.00?
+    let mut output = String::new();
+
+    for l in this.result().object().as_source().unwrap().as_str().lines() {
+        if l.starts_with("#extension GL_GOOGLE_include_directive") {
+            continue;
+        } else if l.starts_with("#line") {
+            writeln!(output, "//{}", l).ok();
+        } else {
+            writeln!(output, "{}", l).ok();
+        }
+    }
+
+    output
+}
+
+#[cfg(feature = "spirv")]
+fn get_shader_tokens<T: AsOutputFormat>(
+    this: &WrappedShader<T>,
+) -> crate::Result<proc_macro2::TokenStream> {
+    if this.prefer_spirv() && this.result().as_spirv().is_some() {
+        // Just write spv file
+        let res = syn::LitByteStr::new(
+            &this
+                .result()
+                .object()
+                .as_spirv()
+                .ok_or(tinygl_compiler::Error::SpirVObjectRequired)?
+                .as_bytes_u8(),
+            proc_macro2::Span::call_site(),
+        );
+        Ok(quote! { #res })
+    } else {
+        let out = filter_src(this);
+        Ok(quote! { #out })
+    }
+}
+
+#[cfg(not(feature = "spirv"))]
+fn get_shader_tokens<T: AsOutputFormat>(
+    this: &WrappedShader<T>,
+) -> crate::Result<proc_macro2::TokenStream> {
+    let out = filter_src(this);
+    Ok(quote! { #out })
+}
+
+impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
     fn generate(&self) -> crate::Result<proc_macro2::TokenStream> {
-        let shader_tokens = match self.output_type() {
-            TargetType::SpirV => {
-                // Just write spv file
-                let res =
-                    syn::LitByteStr::new(&self.binary_result_u8(), proc_macro2::Span::call_site());
-                quote! { #res }
-            }
-            TargetType::Glsl(version) => {
-                let out = if self.skip_spirv() {
-                    use std::fmt::Write;
-
-                    // We skipped SPIR-V generation so just fix invalid stuff for OpenGL ES targets
-                    // WebGL is more sensitive to leftovers from includes and stuff
-                    // TODO: This is an ugly hack, maybe forbid skip_spirv + ES 3.00?
-                    let mut output = String::new();
-
-                    for l in self.text_result().lines() {
-                        if l.starts_with("#extension GL_GOOGLE_include_directive") {
-                            continue;
-                        } else if l.starts_with("#line") {
-                            writeln!(output, "//{}", l).ok();
-                        } else {
-                            writeln!(output, "{}", l).ok();
-                        }
-                    }
-
-                    output
-                } else {
-                    self.transpile(version)?
-                };
-
-                quote! { #out }
-            }
-            _ => unreachable!(),
-        };
+        let shader_tokens = get_shader_tokens(self)?;
+        let is_source = self.prefer_spirv() && self.result().as_source().is_some();
 
         // Shader resource structure
         let struct_name = format_ident!("{}", self.shader_struct_name());
-        let kind_constant_name = format_ident!("{}", self.kind().constant_name);
-        let st: syn::Type = syn::parse_str(if self.output_type().is_source() {
+        let kind_constant_name =
+            format_ident!("{}", self.result().object().info().kind.constant_name());
+        let st: syn::Type = syn::parse_str(if is_source {
             "::tinygl::wrappers::SourceShader"
         } else {
             "::tinygl::wrappers::BinaryShader"
@@ -89,7 +108,7 @@ impl WrappedItem for WrappedShader {
         });
 
         // Implement the right shader trait for the given output type
-        if self.output_type().is_source() {
+        if is_source {
             parts.push(quote! {
                 impl ::tinygl::wrappers::SourceShader<'static> for #struct_name {
                     fn get_source() -> &'static str {
@@ -131,7 +150,7 @@ impl WrappedItem for WrappedShader {
             .map(|uniform| {
                 let name = format_ident!("{}", uniform.location_name());
 
-                if self.output_type().is_source() {
+                if is_source {
                     // Source shader: find uniform locations from variable names
                     let uniform_name = uniform.name.as_str();
                     quote! { #name: unsafe { gl.get_uniform_location(program, #uniform_name) } }

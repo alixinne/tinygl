@@ -1,7 +1,7 @@
 pub mod compiler;
 pub mod types;
 
-pub use tinygl_compiler::CompilerBuilder;
+pub use tinygl_compiler::Compiler;
 
 use std::fs::File;
 use std::io::prelude::*;

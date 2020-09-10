@@ -1,19 +1,30 @@
 use std::path::Path;
 
-#[derive(Debug)]
-pub struct ShaderKindInfo {
-    pub shaderc_kind: shaderc::ShaderKind,
-    pub constant_name: &'static str,
-    pub extension: &'static str,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ShaderKind {
+    Vertex,
+    Fragment,
+    Compute,
 }
 
-impl ShaderKindInfo {
+#[cfg(feature = "shaderc")]
+impl Into<shaderc::ShaderKind> for ShaderKind {
+    fn into(self) -> shaderc::ShaderKind {
+        match self {
+            Self::Vertex => shaderc::ShaderKind::Vertex,
+            Self::Fragment => shaderc::ShaderKind::Fragment,
+            Self::Compute => shaderc::ShaderKind::Compute,
+        }
+    }
+}
+
+impl ShaderKind {
     pub fn from_path(p: impl AsRef<Path>) -> Option<Self> {
         if let Some(ext) = p.as_ref().extension() {
             return Some(match ext.to_str() {
-                Some("vert") => Self::from(shaderc::ShaderKind::Vertex),
-                Some("comp") => Self::from(shaderc::ShaderKind::Compute),
-                Some("frag") => Self::from(shaderc::ShaderKind::Fragment),
+                Some("vert") => Self::Vertex,
+                Some("comp") => Self::Compute,
+                Some("frag") => Self::Fragment,
 
                 // TODO: Add other shader types
                 _ => panic!("{}: unknown shader type", p.as_ref().to_string_lossy()),
@@ -22,31 +33,20 @@ impl ShaderKindInfo {
 
         None
     }
-}
 
-impl From<shaderc::ShaderKind> for ShaderKindInfo {
-    fn from(kind: shaderc::ShaderKind) -> Self {
-        use shaderc::ShaderKind::*;
+    pub fn constant_name(&self) -> &'static str {
+        match self {
+            Self::Vertex => "VERTEX_SHADER",
+            Self::Fragment => "FRAGMENT_SHADER",
+            Self::Compute => "COMPUTE_SHADER",
+        }
+    }
 
-        match kind {
-            Vertex => Self {
-                shaderc_kind: kind,
-                constant_name: "VERTEX_SHADER",
-                extension: "vert",
-            },
-            Compute => Self {
-                shaderc_kind: kind,
-                constant_name: "COMPUTE_SHADER",
-                extension: "comp",
-            },
-            Fragment => Self {
-                shaderc_kind: kind,
-                constant_name: "FRAGMENT_SHADER",
-                extension: "frag",
-            },
-
-            // TODO: Add other shader types
-            _ => panic!("{:?}: unsupported shader type", kind),
+    pub fn extension(&self) -> &'static str {
+        match self {
+            Self::Vertex => "vert",
+            Self::Fragment => "comp",
+            Self::Compute => "frag",
         }
     }
 }
