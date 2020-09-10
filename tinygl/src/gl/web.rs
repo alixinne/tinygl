@@ -652,11 +652,17 @@ impl Context {
     }
 
     pub unsafe fn get_program_link_status(&self, program: ProgramName) -> bool {
-        self.gl.get_program_parameter(program, LINK_STATUS).as_bool().unwrap_or(false)
+        self.gl
+            .get_program_parameter(program, LINK_STATUS)
+            .as_bool()
+            .unwrap_or(false)
     }
 
     pub unsafe fn get_shader_compile_status(&self, shader: ShaderName) -> bool {
-        self.gl.get_shader_parameter(shader, COMPILE_STATUS).as_bool().unwrap_or(false)
+        self.gl
+            .get_shader_parameter(shader, COMPILE_STATUS)
+            .as_bool()
+            .unwrap_or(false)
     }
 
     pub unsafe fn bind_buffer(&self, target: u32, buffer: Option<&wrappers::Buffer>) {
