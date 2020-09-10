@@ -122,7 +122,7 @@ fn uniform_reflect() {
 
     compiler
         .write_root_include(
-            std::env::temp_dir(),
+            std::env::temp_dir().join("shaders.rs"),
             &[&vert_shader, &frag_shader, &program, &set],
         )
         .expect("failed to write code")

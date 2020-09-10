@@ -106,11 +106,13 @@ impl GenericType {
         }
     }
 
-    fn uniform_value(&self, name: &str) -> String {
+    fn uniform_value(&self, name: &syn::Ident) -> proc_macro2::TokenStream {
+        use quote::quote;
+
         match self {
-            Self::Atom(_) => format!("{}", name),
-            Self::Vector(_) => format!("{}.as_ref().as_ptr()", name),
-            Self::Matrix(_) => format!("{}.as_ref().as_ptr() as *const _", name),
+            Self::Atom(_) => quote! { #name },
+            Self::Vector(_) => quote! { #name.as_ref().as_ptr() },
+            Self::Matrix(_) => quote! { #name.as_ref().as_ptr() as *const _ },
         }
     }
 }
@@ -165,10 +167,12 @@ impl ItemOrArrayType {
         }
     }
 
-    pub fn uniform_value(&self, name: &str) -> String {
+    pub fn uniform_value(&self, name: &syn::Ident) -> proc_macro2::TokenStream {
+        use quote::quote;
+
         match self {
             Self::Item(inner) => inner.uniform_value(name),
-            Self::Array(_, _) => format!("{}.as_ref().as_ptr()", name),
+            Self::Array(_, _) => quote! { #name.as_ref().as_ptr() },
         }
     }
 }

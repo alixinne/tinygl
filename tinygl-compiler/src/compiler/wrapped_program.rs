@@ -1,10 +1,6 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
-use std::path::Path;
+use heck::{CamelCase, SnakeCase};
 
-use heck::CamelCase;
-use heck::SnakeCase;
+use quote::{format_ident, quote};
 
 use super::wrapped_shader::*;
 use super::WrappedItem;
@@ -12,22 +8,16 @@ use super::WrappedItem;
 use crate::types::prelude::*;
 
 pub struct WrappedProgram<'s> {
-    id: String,
     struct_name: String,
-    rs_file_name: String,
     attached_shaders: Vec<&'s WrappedShader>,
 }
 
 impl<'s> WrappedProgram<'s> {
     pub fn new(program_name: &str, attached_shaders: &[&'s WrappedShader]) -> Self {
-        let id = program_name.to_snake_case();
         let struct_name = program_name.to_camel_case() + "Program";
-        let rs_file_name = struct_name.to_snake_case() + ".rs";
 
         Self {
-            id,
             struct_name,
-            rs_file_name,
             attached_shaders: attached_shaders.to_vec(),
         }
     }
@@ -46,83 +36,64 @@ impl<'s> WrappedProgram<'s> {
             .filter(|s| !s.uniforms().is_empty())
     }
 
-    fn write_rust_wrapper(&self, dest: impl AsRef<Path>) -> crate::Result<()> {
-        // Write Rust program code
-        let output_rs = File::create(&Path::new(dest.as_ref()).join(&self.rs_file_name))?;
-        let mut wr = BufWriter::new(output_rs);
+    fn write_rust_wrapper(&self) -> crate::Result<proc_macro2::TokenStream> {
+        // Write program struct
+        let struct_name = format_ident!("{}", self.struct_name);
+        let uniform_locations_name: Vec<_> = self
+            .shaders_with_uniforms()
+            .map(|shader| format_ident!("{}", shader.uniform_locations_name()))
+            .collect();
+        let uniform_struct_name: Vec<_> = self
+            .shaders_with_uniforms()
+            .map(|shader| format_ident!("{}", shader.uniform_struct_name()))
+            .collect();
 
-        writeln!(wr, "pub struct {} {{", self.struct_name)?;
-        // Program name handle
-        writeln!(wr, "    name: ::tinygl::gl::Program,")?;
-        // Write uniform handles
-        for shader in self.shaders_with_uniforms() {
-            writeln!(
-                wr,
-                "    {}: {},",
-                shader.uniform_locations_name(),
-                shader.uniform_struct_name()
-            )?;
-        }
-        writeln!(wr, "}}")?;
+        let prog_struct = quote! {
+            pub struct #struct_name {
+                // Program name handle
+                name: ::tinygl::gl::Program,
+                // Uniform handles
+                #(#uniform_locations_name: #uniform_struct_name),*
+            }
+        };
 
-        writeln!(wr, "impl {} {{", self.struct_name)?;
+        let mut methods = Vec::new();
+
+        let shader_variable_name: Vec<_> = self
+            .shaders()
+            .map(|s| format_ident!("{}", s.shader_variable_name()))
+            .collect();
+        let shader_struct_name: Vec<_> = self
+            .shaders()
+            .map(|s| format_ident!("{}", s.shader_struct_name()))
+            .collect();
+
         // Constructor function
-        writeln!(wr, "    pub fn new(gl: &::tinygl::Context,")?;
-        // Add shader parameters
-        for shader in self.shaders() {
-            writeln!(
-                wr,
-                "               {param_name}: &{param_type},",
-                param_name = shader.shader_variable_name(),
-                param_type = shader.shader_struct_name()
-            )?;
-        }
-        writeln!(wr, "              ) -> ::tinygl::Result<Self> {{")?;
-        writeln!(
-            wr,
-            "        let program_name = ::tinygl::wrappers::RuntimeProgramBuilder::new(gl)"
-        )?;
-        for shader in self.shaders() {
-            writeln!(wr, "            .shader({})", shader.shader_variable_name())?;
-        }
-        writeln!(wr, "            .build()?")?;
-        writeln!(wr, "            .into_inner();")?;
-        writeln!(wr, "        Ok(Self {{")?;
-        writeln!(wr, "            name: program_name,")?;
-        for shader in self.shaders_with_uniforms() {
-            writeln!(
-                wr,
-                "            {}: {}::new(gl, program_name),",
-                shader.uniform_locations_name(),
-                shader.uniform_struct_name()
-            )?;
-        }
-        writeln!(wr, "        }})")?;
-        writeln!(wr, "    }}")?;
+        methods.push(quote! {
+            pub fn new(gl: &::tinygl::Context, #(#shader_variable_name: &#shader_struct_name),*) -> ::tinygl::Result<Self> {
+                let program_name = ::tinygl::wrappers::RuntimeProgramBuilder::new(gl)
+                    #(.shader(#shader_variable_name))*
+                    .build()?
+                    .into_inner();
+
+                Ok(Self {
+                    name: program_name,
+                    #(#uniform_locations_name: #uniform_struct_name::new(gl, program_name)),*
+                })
+            }
+        });
+
         // Write builder (constructs shaders and then calls the constructor)
-        writeln!(
-            wr,
-            "    pub fn build(gl: &::tinygl::Context) -> ::tinygl::Result<Self> {{"
-        )?;
-        for shader in self.shaders() {
-            writeln!(
-                wr,
-                "        let {} = ::tinygl::wrappers::GlRefHandle::new(gl, {}::build(gl)?);",
-                shader.shader_variable_name(),
-                shader.shader_struct_name()
-            )?;
-        }
-        writeln!(wr, "        Ok(Self::new(")?;
-        writeln!(wr, "            gl,")?;
-        for shader in self.shaders() {
-            writeln!(
-                wr,
-                "            {name}.as_ref(),",
-                name = shader.shader_variable_name(),
-            )?;
-        }
-        writeln!(wr, "        )?)")?;
-        writeln!(wr, "    }}")?;
+        methods.push(quote! {
+            pub fn build(gl: &::tinygl::Context) -> ::tinygl::Result<Self> {
+                #(let #shader_variable_name = ::tinygl::wrappers::GlRefHandle::new(gl, #shader_struct_name::build(gl)?);)*
+
+                Ok(Self::new(
+                    gl,
+                    #(#shader_variable_name.as_ref()),*
+                )?)
+            }
+        });
 
         // List of seen uniforms, since uniform names are unique
         let mut known = std::collections::HashSet::new();
@@ -131,6 +102,8 @@ impl<'s> WrappedProgram<'s> {
         for shader in self.shaders_with_uniforms() {
             for uniform in shader.uniforms() {
                 let ty = uniform.ty.unwrap();
+                let sc = uniform.name.to_snake_case();
+                let type_name: syn::Type = syn::parse_str(&ty.rust_value_type()).unwrap();
 
                 // Skip this uniform if it has been added already
                 if known.contains(&uniform.name) {
@@ -139,80 +112,63 @@ impl<'s> WrappedProgram<'s> {
                     known.insert(&uniform.name);
                 }
 
-                writeln!(
-                    wr,
-                    "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, {extra}value: {type_name}) {{",
-                    uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.rust_value_type(),
-                    extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
-                )?;
+                let ident = format_ident!("set_{}", sc);
+                let extra_args = ty.uniform_method_extra_args_with_ty().into_iter();
+                let extra_values = ty.uniform_method_extra_args_no_ty().into_iter();
+                let location_name = format_ident!("{}", shader.uniform_locations_name());
 
-                writeln!(
-                    wr,
-                    "        self.{location_name}.set_{uniform_sc_name}(gl, self.name, {extra}value);",
-                    location_name = shader.uniform_locations_name(),
-                    uniform_sc_name = uniform.name.to_snake_case(),
-                    extra = ty
-                        .uniform_method_extra_args_no_ty()
-                        .map_or_else(|| String::new(), |x| format!("{}, ", x)),
-                )?;
-
-                writeln!(wr, "    }}")?;
+                if extra_args.clone().next().is_some() {
+                    methods.push(quote! {
+                        pub fn #ident(&self, gl: &::tinygl::Context, #(#extra_args),* value: #type_name) {
+                            self.#location_name.#ident(gl, self.name, #(#extra_values)*,, value);
+                        }
+                    });
+                } else {
+                    methods.push(quote! {
+                        pub fn #ident(&self, gl: &::tinygl::Context, value: #type_name) {
+                            self.#location_name.#ident(gl, self.name, value);
+                        }
+                    });
+                }
 
                 if let Some(binding) = uniform.binding {
-                    writeln!(
-                        wr,
-                        "    pub fn get_{uniform_sc_name}_binding(&self) -> {type_name} {{",
-                        uniform_sc_name = uniform.name.to_snake_case(),
-                        type_name = ty.rust_value_type(),
-                    )?;
+                    let ident = format_ident!("get_{}_binding", sc);
+                    let binding = binding as u32;
 
-                    writeln!(wr, "        {}", binding)?;
-                    writeln!(wr, "    }}")?;
+                    methods.push(quote! {
+                        pub fn #ident(&self) -> #type_name {
+                            #binding
+                        }
+                    });
                 }
             }
         }
-        writeln!(wr, "}}")?;
 
-        // Implement ProgramCommon
-        writeln!(
-            wr,
-            "impl ::tinygl::wrappers::ProgramCommon for {} {{",
-            self.struct_name
-        )?;
-        // Name getter
-        writeln!(wr, "    fn name(&self) -> ::tinygl::gl::Program {{")?;
-        writeln!(wr, "        self.name")?;
-        writeln!(wr, "    }}")?;
-        writeln!(wr, "}}")?;
+        Ok(quote! {
+            #prog_struct
 
-        // Implement GlDrop
-        writeln!(
-            wr,
-            "impl ::tinygl::wrappers::GlDrop for {} {{",
-            self.struct_name
-        )?;
-        writeln!(
-            wr,
-            "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{"
-        )?;
-        writeln!(wr, "        use ::tinygl::wrappers::ProgramCommon;")?;
-        writeln!(wr, "        gl.delete_program(self.name());")?;
-        writeln!(wr, "    }}")?;
-        writeln!(wr, "}}")?;
+            impl #struct_name {
+                #(#methods)*
+            }
 
-        Ok(())
+            impl ::tinygl::wrappers::ProgramCommon for #struct_name {
+                fn name(&self) -> ::tinygl::gl::Program {
+                    self.name
+                }
+            }
+
+            impl ::tinygl::wrappers::GlDrop for #struct_name {
+                unsafe fn drop(&mut self, gl: &::tinygl::Context) {
+                    use ::tinygl::wrappers::ProgramCommon;
+                    gl.delete_program(self.name());
+                }
+            }
+        })
     }
 }
 
 impl WrappedItem for WrappedProgram<'_> {
-    fn write(&self, dest: &Path) -> Result<(), crate::Error> {
-        self.write_rust_wrapper(dest)
-    }
-
-    fn write_root_include(&self, wr: &mut dyn Write) -> Result<(), crate::Error> {
-        writeln!(wr, "// {} program", self.id)?;
-        writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
-        Ok(())
+    fn generate(&self) -> crate::Result<proc_macro2::TokenStream> {
+        self.write_rust_wrapper()
     }
 }

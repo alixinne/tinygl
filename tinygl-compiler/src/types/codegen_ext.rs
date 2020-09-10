@@ -18,51 +18,39 @@ pub trait CodegenExt {
     fn rust_primitive_type(&self) -> &'static str;
     fn uniform_method_name(&self) -> String;
     fn uniform_method_extra_args(&self) -> &[ExtraArg];
-    fn uniform_count_arg(&self) -> String;
+    fn uniform_count_arg(&self) -> Option<usize>;
 
-    fn uniform_method_extra_args_with_ty(&self) -> Option<String> {
+    fn uniform_method_extra_args_with_ty(&self) -> Option<proc_macro2::TokenStream> {
+        use quote::{format_ident, quote};
         let args = self.uniform_method_extra_args();
 
-        if args.len() > 0 {
-            Some(
-                args.iter()
-                    .map(|arg| format!("{}: {}", arg.name, arg.ty))
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            )
-        } else {
-            None
+        if args.is_empty() {
+            return None;
         }
+
+        let name = args.iter().map(|e| format_ident!("{}", e.name));
+        let ty = args
+            .iter()
+            .map(|e| -> syn::Type { syn::parse_str(e.ty).unwrap() });
+
+        Some(quote! {
+            #(#name: #ty),*
+        })
     }
 
-    fn uniform_method_extra_args_no_ty(&self) -> Option<String> {
+    fn uniform_method_extra_args_no_ty(&self) -> Option<proc_macro2::TokenStream> {
+        use quote::{format_ident, quote};
         let args = self.uniform_method_extra_args();
 
-        if args.len() > 0 {
-            Some(
-                args.iter()
-                    .map(|arg| arg.name)
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            )
-        } else {
-            None
+        if args.is_empty() {
+            return None;
         }
-    }
 
-    fn uniform_method_extra_args_val(&self) -> Option<String> {
-        let args = self.uniform_method_extra_args();
+        let name = args.iter().map(|e| format_ident!("{}", e.name));
 
-        if args.len() > 0 {
-            Some(
-                args.iter()
-                    .map(|arg| arg.val)
-                    .collect::<Vec<_>>()
-                    .join(", "),
-            )
-        } else {
-            None
-        }
+        Some(quote! {
+            #(#name),*
+        })
     }
 }
 
@@ -129,8 +117,8 @@ impl CodegenExt for AtomType {
         &[]
     }
 
-    fn uniform_count_arg(&self) -> String {
-        String::new()
+    fn uniform_count_arg(&self) -> Option<usize> {
+        None
     }
 }
 
@@ -178,8 +166,8 @@ impl CodegenExt for VectorType {
         &[]
     }
 
-    fn uniform_count_arg(&self) -> String {
-        "1, ".to_owned()
+    fn uniform_count_arg(&self) -> Option<usize> {
+        Some(1)
     }
 }
 
@@ -229,8 +217,8 @@ impl CodegenExt for MatrixType {
         }]
     }
 
-    fn uniform_count_arg(&self) -> String {
-        "1, ".to_owned()
+    fn uniform_count_arg(&self) -> Option<usize> {
+        Some(1)
     }
 }
 
@@ -291,7 +279,7 @@ impl CodegenExt for GenericType {
         }
     }
 
-    fn uniform_count_arg(&self) -> String {
+    fn uniform_count_arg(&self) -> Option<usize> {
         match self {
             Self::Atom(atom) => atom.uniform_count_arg(),
             Self::Vector(vector) => vector.uniform_count_arg(),
@@ -350,10 +338,10 @@ impl CodegenExt for ItemOrArrayType {
         }
     }
 
-    fn uniform_count_arg(&self) -> String {
+    fn uniform_count_arg(&self) -> Option<usize> {
         match self {
             Self::Item(item) => item.uniform_count_arg(),
-            Self::Array(_, size) => format!("{}, ", size),
+            Self::Array(_, size) => Some(*size as usize),
         }
     }
 }

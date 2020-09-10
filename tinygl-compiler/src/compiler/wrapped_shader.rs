@@ -1,10 +1,8 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use heck::CamelCase;
-use heck::SnakeCase;
+use heck::{CamelCase, SnakeCase};
+
+use quote::{format_ident, quote};
 
 use rspirv::dr as rr;
 
@@ -97,7 +95,7 @@ impl WrappedShader {
         &self.uniform_locations_name
     }
 
-    pub fn reflect_uniforms(&mut self) -> Result<(), crate::Error> {
+    pub fn reflect_uniforms(&mut self) -> crate::Result<()> {
         // Extract uniform data
         let mut loader = rr::Loader::new();
         rspirv::binary::parse_words(self.binary_result.as_binary(), &mut loader).unwrap_or_else(
@@ -115,39 +113,36 @@ impl WrappedShader {
         Ok(())
     }
 
-    fn write_shader(&self, dest: impl AsRef<Path>) -> crate::Result<String> {
-        let shader_file_name = format!(
-            "{}{}",
-            self.shader,
-            if let TargetType::SpirV = self.output_type {
-                ".spv"
-            } else {
-                ""
-            }
-        );
-
-        // Write binary to .spv/.glsl file
-        let mut output = File::create(&Path::new(dest.as_ref()).join(&shader_file_name))?;
-
+    fn write_shader(&self) -> crate::Result<proc_macro2::TokenStream> {
         match self.output_type {
             TargetType::SpirV => {
                 // Just write spv file
-                output.write_all(self.binary_result.as_binary_u8())?;
+                let res = syn::LitByteStr::new(
+                    &self.binary_result.as_binary_u8(),
+                    proc_macro2::Span::call_site(),
+                );
+                Ok(quote! { #res })
             }
             TargetType::Glsl(version) => {
-                if self.skip_spirv {
+                let out = if self.skip_spirv {
+                    use std::fmt::Write;
+
                     // We skipped SPIR-V generation so just fix invalid stuff for OpenGL ES targets
                     // WebGL is more sensitive to leftovers from includes and stuff
                     // TODO: This is an ugly hack, maybe forbid skip_spirv + ES 3.00?
+                    let mut output = String::new();
+
                     for l in self.binary_result.as_text().lines() {
                         if l.starts_with("#extension GL_GOOGLE_include_directive") {
                             continue;
                         } else if l.starts_with("#line") {
-                            writeln!(output, "//{}", l)?;
+                            writeln!(output, "//{}", l).ok();
                         } else {
-                            writeln!(output, "{}", l)?;
+                            writeln!(output, "{}", l).ok();
                         }
                     }
+
+                    output
                 } else {
                     // Use spirv_cross to write valid code
                     let module =
@@ -162,198 +157,188 @@ impl WrappedShader {
                     })
                     .unwrap();
 
-                    write!(output, "{}", ast.compile()?)?;
-                }
+                    ast.compile()?
+                };
+
+                Ok(quote! { #out })
             }
             _ => unreachable!(),
         }
-
-        Ok(shader_file_name)
     }
 
     fn write_rust_wrapper(
         &self,
-        dest: impl AsRef<Path>,
-        shader_file_name: &str,
-    ) -> crate::Result<()> {
-        // Write Rust interface code
-        let output_rs = File::create(&Path::new(dest.as_ref()).join(&self.rs_file_name)).unwrap();
-        let mut wr = BufWriter::new(output_rs);
-
+        shader_tokens: proc_macro2::TokenStream,
+    ) -> crate::Result<proc_macro2::TokenStream> {
         // Shader resource structure
-        writeln!(wr, "/// {} Rust wrapper", self.shader)?;
-        writeln!(wr, "pub struct {} {{", self.shader_struct_name())?;
-        writeln!(wr, "    name: ::tinygl::gl::Shader,")?;
-        writeln!(wr, "}}")?;
+        let struct_name = format_ident!("{}", self.shader_struct_name());
+        let kind_constant_name = format_ident!("{}", self.kind.constant_name);
+        let st: syn::Type = syn::parse_str(if self.output_type.is_source() {
+            "::tinygl::wrappers::SourceShader"
+        } else {
+            "::tinygl::wrappers::BinaryShader"
+        })
+        .unwrap();
 
-        writeln!(wr, "impl {} {{", self.shader_struct_name())?;
-        writeln!(
-            wr,
-            "    pub fn build(gl: &::tinygl::Context) -> ::tinygl::Result<Self> {{"
-        )?;
-        writeln!(
-            wr,
-            "        Ok(Self {{ name: <Self as {st}>::build(gl, ::tinygl::gl::{kind})? }})",
-            st = if self.output_type.is_source() {
-                "::tinygl::wrappers::SourceShader"
-            } else {
-                "::tinygl::wrappers::BinaryShader"
-            },
-            kind = self.kind.constant_name,
-        )?;
-        writeln!(wr, "    }}")?;
-        writeln!(wr, "}}")?;
+        let mut parts = Vec::new();
 
-        // Write struct for holding uniform locations
-        writeln!(wr, "#[derive(Default)]")?;
-        writeln!(wr, "pub struct {} {{", self.uniform_struct_name())?;
+        parts.push(quote! {
+            pub struct #struct_name {
+                name: tinygl::gl::Shader,
+            }
 
-        for uniform in &self.uniforms {
-            writeln!(
-                wr,
-                "    {name}: Option<::tinygl::gl::UniformLocation>,",
-                name = uniform.location_name()
-            )?;
-        }
-        writeln!(wr, "}}")?;
-
-        writeln!(wr, "impl {} {{", self.uniform_struct_name())?;
-        // Write constructor
-        writeln!(
-            wr,
-            "    pub fn new({prefix}gl: &::tinygl::Context, {prefix}program: ::tinygl::gl::Program) -> Self {{",
-            prefix = if self.output_type.is_source() {
-                if self.uniforms.is_empty() {
-                    "_"
-                } else {
-                    ""
+            impl #struct_name {
+                pub fn build(gl: &::tinygl::Context) -> ::tinygl::Result<Self> {
+                    Ok(Self {
+                        name: <Self as #st>::build(gl, ::tinygl::gl::#kind_constant_name)?
+                    })
                 }
-            } else {
-                "_"
-            })?;
-        writeln!(wr, "        Self {{")?;
-
-        for uniform in &self.uniforms {
-            if self.output_type.is_source() {
-                // Source shader: find uniform locations from variable names
-                writeln!(wr, "            {name}: unsafe {{ gl.get_uniform_location(program, \"{uniform_name}\") }},",
-                    name = uniform.location_name(),
-                    uniform_name = uniform.name)?;
-            } else {
-                // Binary shader: assume locations form reflection on SPIR-V
-                writeln!(
-                    wr,
-                    "            {name}: Some({location}),",
-                    name = uniform.location_name(),
-                    location = uniform.location
-                )?;
-            }
-        }
-
-        writeln!(wr, "        }}")?;
-        writeln!(wr, "    }}")?;
-
-        // Write getter/setter methods
-        for uniform in &self.uniforms {
-            let ty = uniform.ty.unwrap();
-
-            if let Some(binding) = uniform.binding {
-                writeln!(
-                    wr,
-                    "    pub fn get_{uniform_sc_name}_binding(&self) -> {type_name} {{",
-                    uniform_sc_name = uniform.name.to_snake_case(),
-                    type_name = ty.rust_value_type(),
-                )?;
-                writeln!(wr, "        {}", binding)?;
-                writeln!(wr, "    }}")?;
             }
 
-            writeln!(
-                wr,
-                "    pub fn set_{uniform_sc_name}(&self, gl: &::tinygl::Context, program: ::tinygl::gl::ProgramName, {extra}value: {type_name}) {{",
-                uniform_sc_name = uniform.name.to_snake_case(),
-                type_name = ty.rust_value_type(),
-                extra = ty.uniform_method_extra_args_with_ty().map_or_else(|| String::new(), |x| format!("{}, ", x)),
-            )?;
+            impl ::tinygl::wrappers::ShaderCommon for #struct_name {
+                fn kind(&self) -> u32 {
+                    ::tinygl::gl::#kind_constant_name
+                }
 
-            writeln!(
-                wr,
-                "        if let Some(location) = self.{location} {{ unsafe {{ gl.program_uniform{prefix}(program, location, {count}{extra}{what}) }}; }}",
-                prefix = ty.uniform_method_name(),
-                count = ty.uniform_count_arg(),
-                location = uniform.location_name(),
-                what = ty.uniform_value("value"),
-                extra = ty.uniform_method_extra_args_val().map_or_else(|| String::new(), |x| format!("{}, ", x)),
-            )?;
+                fn name(&self) -> ::tinygl::gl::Shader {
+                    self.name
+                }
+            }
 
-            writeln!(wr, "    }}")?;
-        }
-        writeln!(wr, "}}")?;
-
-        // A wrapped shader implements ShaderCommon
-        writeln!(
-            wr,
-            "impl ::tinygl::wrappers::ShaderCommon for {} {{",
-            self.shader_struct_name()
-        )?;
-        writeln!(wr, "    fn kind(&self) -> u32 {{")?;
-        writeln!(wr, "        ::tinygl::gl::{}", self.kind.constant_name)?;
-        writeln!(wr, "    }}")?;
-        writeln!(wr, "    fn name(&self) -> ::tinygl::gl::Shader {{")?;
-        writeln!(wr, "        self.name")?;
-        writeln!(wr, "    }}")?;
-        writeln!(wr, "}}")?;
-
-        // Implement GlDrop
-        writeln!(
-            wr,
-            "impl ::tinygl::wrappers::GlDrop for {} {{",
-            self.shader_struct_name()
-        )?;
-        writeln!(
-            wr,
-            "    unsafe fn drop(&mut self, gl: &::tinygl::Context) {{"
-        )?;
-        writeln!(wr, "        use ::tinygl::prelude::*;")?;
-        writeln!(wr, "        gl.delete_shader(self.name());")?;
-        writeln!(wr, "    }}")?;
-        writeln!(wr, "}}")?;
+            impl ::tinygl::wrappers::GlDrop for #struct_name {
+                unsafe fn drop(&mut self, gl: &::tinygl::Context) {
+                    use ::tinygl::wrappers::ShaderCommon;
+                    gl.delete_shader(self.name());
+                }
+            }
+        });
 
         // Implement the right shader trait for the given output type
         if self.output_type.is_source() {
-            writeln!(
-                wr,
-                "impl ::tinygl::wrappers::SourceShader<'static> for {} {{",
-                self.shader_struct_name()
-            )?;
-            writeln!(wr, "    fn get_source() -> &'static str {{")?;
-            writeln!(wr, "        include_str!(\"{}\")", shader_file_name)?;
-            writeln!(wr, "    }}")?;
-            writeln!(wr, "}}")?;
+            parts.push(quote! {
+                impl ::tinygl::wrappers::SourceShader<'static> for #struct_name {
+                    fn get_source() -> &'static str {
+                        #shader_tokens
+                    }
+                }
+            });
         } else {
-            writeln!(
-                wr,
-                "impl ::tinygl::wrappers::BinaryShader<'static> for {} {{",
-                self.shader_struct_name()
-            )?;
-            writeln!(wr, "    fn get_binary() -> &'static [u8] {{")?;
-            writeln!(wr, "        include_bytes!(\"{}\")", shader_file_name)?;
-            writeln!(wr, "    }}")?;
-            writeln!(wr, "}}")?;
+            parts.push(quote! {
+                impl ::tinygl::wrappers::BinaryShader<'static> for #struct_name {
+                    fn get_binary() -> &'static [u8] {
+                        #shader_tokens
+                    }
+                }
+            });
         }
 
-        Ok(())
+        // Write struct for holding uniform locations
+        let struct_name = format_ident!("{}", self.uniform_struct_name());
+        let uniform_location_name: Vec<_> = self
+            .uniforms
+            .iter()
+            .map(|u| format_ident!("{}", u.location_name()))
+            .collect();
+
+        parts.push(quote! {
+            #[derive(Default)]
+            pub struct #struct_name {
+                #(#uniform_location_name: Option<::tinygl::gl::UniformLocation>,)*
+            }
+        });
+
+        let mut methods = Vec::new();
+
+        // Write constructor
+        let uset = self
+            .uniforms
+            .iter()
+            .map(|uniform| {
+                let name = format_ident!("{}", uniform.location_name());
+
+                if self.output_type.is_source() {
+                    // Source shader: find uniform locations from variable names
+                    let uniform_name = uniform.name.as_str();
+                    quote! { #name: unsafe { gl.get_uniform_location(program, #uniform_name) } }
+                } else {
+                    // Binary shader: assume locations form reflection on SPIR-V
+                    let location = uniform.location;
+                    quote! { #name: Some(#location) }
+                }
+            })
+            .collect::<Vec<_>>();
+
+        methods.push(quote! {
+            pub fn new(gl: &::tinygl::Context, program: ::tinygl::gl::Program) -> Self {
+                Self {
+                    #(#uset),*
+                }
+            }
+        });
+
+        // Write getter/setter methods
+        methods.extend(self.uniforms.iter().flat_map(|uniform| {
+            let mut res = Vec::new();
+            let ty = uniform.ty.unwrap();
+            let type_name: syn::Type = syn::parse_str(&ty.rust_value_type()).unwrap();
+
+            if let Some(binding) = uniform.binding {
+                let meth_ident = format_ident!("get_{}_binding", uniform.name.to_snake_case());
+
+                res.push(quote! {
+                    pub fn #meth_ident(&self) -> #type_name {
+                        #binding
+                    }
+                });
+            }
+
+            let meth_ident = format_ident!("set_{}", uniform.name.to_snake_case());
+            let location = format_ident!("{}", uniform.location_name());
+            let program_uniform = format_ident!("program_uniform{}", ty.uniform_method_name());
+            let mut meth_args = vec![
+                quote! { value: #type_name }
+            ];
+
+            if let Some(extra) = ty.uniform_method_extra_args_with_ty() {
+                meth_args.insert(0, extra);
+            }
+
+            let mut call_args = Vec::new();
+
+            if let Some(count) = ty.uniform_count_arg() {
+                call_args.push(quote! { #count });
+            }
+
+            if let Some(extra) = ty.uniform_method_extra_args_no_ty() {
+                call_args.push(extra);
+            }
+
+            call_args.push(ty.uniform_value(&format_ident!("value")));
+
+            res.push(quote! {
+                pub fn #meth_ident(&self, gl: &::tinygl::Context, program: ::tinygl::gl::ProgramName, #(#meth_args),*) {
+                    if let Some(location) = self.#location {
+                        unsafe {
+                            gl.#program_uniform(program, location, #(#call_args),*);
+                        }
+                    }
+                }
+            });
+
+            res
+        }));
+
+        let struct_name = self.uniform_struct_name();
+        Ok(quote! {
+            impl #struct_name {
+                #(#methods)*
+            }
+        })
     }
 }
 
 impl WrappedItem for WrappedShader {
-    fn write(&self, dest: &Path) -> Result<(), crate::Error> {
-        self.write_rust_wrapper(dest, &self.write_shader(dest)?)
-    }
-
-    fn write_root_include(&self, wr: &mut dyn Write) -> Result<(), crate::Error> {
-        writeln!(wr, "// {} shader", self.source_path.to_string_lossy())?;
-        writeln!(wr, "include!(\"{}\");", self.rs_file_name)?;
-        Ok(())
+    fn generate(&self) -> crate::Result<proc_macro2::TokenStream> {
+        self.write_rust_wrapper(self.write_shader()?)
     }
 }

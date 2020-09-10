@@ -1,4 +1,5 @@
 use std::fs::File;
+use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::Path;
 
@@ -263,12 +264,11 @@ impl Compiler {
         items: &[&'a dyn WrappedItem],
     ) -> Result<()> {
         // Write master shaders.rs file
-        let output_rs = File::create(dest.as_ref().join("shaders.rs"))?;
+        let output_rs = File::create(dest.as_ref())?;
         let mut wr = BufWriter::new(output_rs);
 
         for item in items {
-            item.write(dest.as_ref())?;
-            item.write_root_include(&mut wr)?;
+            writeln!(wr, "{}", item.generate()?)?;
         }
 
         Ok(())

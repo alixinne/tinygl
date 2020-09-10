@@ -38,7 +38,7 @@ impl FoundUniform {
 pub fn find_uniforms(
     shader_path: &str,
     module: &rr::Module,
-) -> Result<Vec<FoundUniform>, crate::Error> {
+) -> crate::Result<Vec<FoundUniform>> {
     // Find constants
     let mut constants = std::collections::HashMap::new();
 
