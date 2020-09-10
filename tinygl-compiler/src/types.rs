@@ -1,12 +1,5 @@
 use std::fmt;
 
-pub mod codegen_ext;
-pub mod prelude {
-    pub use super::codegen_ext::*;
-}
-
-use codegen_ext::CodegenExt;
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum AtomType {
     Int,
@@ -22,6 +15,36 @@ impl AtomType {
             Self::Float | Self::Double => true,
             _ => false,
         }
+    }
+
+    pub fn glsl_base_type(&self) -> &'static str {
+        match self {
+            Self::Int => "int",
+            Self::Float => "float",
+            Self::Double => "double",
+            Self::UInt => "uint",
+            Self::Bool => "bool",
+        }
+    }
+
+    pub fn glsl_vec_name(&self) -> String {
+        match self {
+            Self::Int => "ivec",
+            Self::Float => "vec",
+            Self::Double => "dvec",
+            Self::UInt => "uvec",
+            Self::Bool => "bvec",
+        }
+        .into()
+    }
+
+    pub fn glsl_mat_name(&self) -> String {
+        match self {
+            Self::Float => "mat",
+            Self::Double => "dmat",
+            _ => panic!("cannot use mat_name on non-float"),
+        }
+        .into()
     }
 }
 
@@ -44,6 +67,10 @@ impl VectorType {
             components,
         }
     }
+
+    pub fn glsl_vec_name(&self) -> String {
+        format!("{}{}", self.base_type.glsl_vec_name(), self.components)
+    }
 }
 
 impl fmt::Display for VectorType {
@@ -61,6 +88,10 @@ pub struct MatrixType {
 impl MatrixType {
     fn new(base_type: AtomType, n: u32) -> Self {
         Self { base_type, n }
+    }
+
+    pub fn glsl_mat_name(&self) -> String {
+        format!("{}{}", self.base_type.glsl_mat_name(), self.n)
     }
 }
 
@@ -103,16 +134,6 @@ impl GenericType {
                 Self::Matrix(MatrixType::new(atom_type, n))
             }
             _ => panic!("unsupported type combination"),
-        }
-    }
-
-    fn uniform_value(&self, name: &syn::Ident) -> proc_macro2::TokenStream {
-        use quote::quote;
-
-        match self {
-            Self::Atom(_) => quote! { #name },
-            Self::Vector(_) => quote! { #name.as_ref().as_ptr() },
-            Self::Matrix(_) => quote! { #name.as_ref().as_ptr() as *const _ },
         }
     }
 }
@@ -164,15 +185,6 @@ impl ItemOrArrayType {
                 "unsupported type combination: {:?}[{}]",
                 inner_type, components
             ),
-        }
-    }
-
-    pub fn uniform_value(&self, name: &syn::Ident) -> proc_macro2::TokenStream {
-        use quote::quote;
-
-        match self {
-            Self::Item(inner) => inner.uniform_value(name),
-            Self::Array(_, _) => quote! { #name.as_ref().as_ptr() },
         }
     }
 }

@@ -1,6 +1,3 @@
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::BufWriter;
 use std::path::Path;
 
 use crate::{shader_kind::ShaderKindInfo, Error, Result};
@@ -10,9 +7,6 @@ pub use target_type::TargetType;
 
 mod uniform_set;
 pub use uniform_set::*;
-
-mod wrapped_item;
-pub use wrapped_item::*;
 
 mod wrapped_shader;
 pub use wrapped_shader::*;
@@ -256,21 +250,5 @@ impl Compiler {
         set_name: &str,
     ) -> Result<WrappedUniformSet<'p, 's>> {
         Ok(WrappedUniformSet::new(programs, set_name))
-    }
-
-    pub fn write_root_include<'a>(
-        &self,
-        dest: impl AsRef<Path>,
-        items: &[&'a dyn WrappedItem],
-    ) -> Result<()> {
-        // Write master shaders.rs file
-        let output_rs = File::create(dest.as_ref())?;
-        let mut wr = BufWriter::new(output_rs);
-
-        for item in items {
-            writeln!(wr, "{}", item.generate()?)?;
-        }
-
-        Ok(())
     }
 }

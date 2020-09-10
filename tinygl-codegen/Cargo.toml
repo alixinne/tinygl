@@ -1,0 +1,15 @@
+[package]
+name = "tinygl-codegen"
+version = "0.1.0"
+authors = ["Vincent Tavernier <vince.tavernier@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
+heck = "0.3"
+
+quote = "1.0"
+syn = "1.0"
+proc-macro2 = "1.0"
+
+tinygl-compiler = { path = "../tinygl-compiler" }

@@ -11,7 +11,7 @@ fn find<'p>(
 #[test]
 #[allow(unused_variables)]
 fn uniform_reflect() {
-    let mut compiler = tinygl_compiler::CompilerBuilder::new()
+    let mut compiler = tinygl_codegen::CompilerBuilder::new()
         .build()
         .expect("failed to build compiler");
 
@@ -120,10 +120,9 @@ fn uniform_reflect() {
         .wrap_uniforms(&[&program], "global")
         .expect("failed to wrap uniforms");
 
-    compiler
-        .write_root_include(
-            std::env::temp_dir().join("shaders.rs"),
-            &[&vert_shader, &frag_shader, &program, &set],
-        )
-        .expect("failed to write code")
+    tinygl_codegen::write(
+        std::env::temp_dir().join("shaders.rs"),
+        &[&vert_shader, &frag_shader, &program, &set],
+    )
+    .expect("failed to write code")
 }

@@ -1,4 +1,6 @@
-use super::*;
+use quote::{format_ident, quote};
+
+use tinygl_compiler::types::{AtomType, GenericType, ItemOrArrayType, MatrixType, VectorType};
 
 // TODO: Use a formatter
 // TODO: bvec mapping is broken
@@ -21,7 +23,6 @@ pub trait CodegenExt {
     fn uniform_count_arg(&self) -> Option<usize>;
 
     fn uniform_method_extra_args_with_ty(&self) -> Option<proc_macro2::TokenStream> {
-        use quote::{format_ident, quote};
         let args = self.uniform_method_extra_args();
 
         if args.is_empty() {
@@ -39,7 +40,6 @@ pub trait CodegenExt {
     }
 
     fn uniform_method_extra_args_no_ty(&self) -> Option<proc_macro2::TokenStream> {
-        use quote::{format_ident, quote};
         let args = self.uniform_method_extra_args();
 
         if args.is_empty() {
@@ -56,33 +56,15 @@ pub trait CodegenExt {
 
 impl CodegenExt for AtomType {
     fn glsl_base_type(&self) -> &'static str {
-        match self {
-            Self::Int => "int",
-            Self::Float => "float",
-            Self::Double => "double",
-            Self::UInt => "uint",
-            Self::Bool => "bool",
-        }
+        AtomType::glsl_base_type(self)
     }
 
     fn glsl_vec_name(&self) -> String {
-        match self {
-            Self::Int => "ivec",
-            Self::Float => "vec",
-            Self::Double => "dvec",
-            Self::UInt => "uvec",
-            Self::Bool => "bvec",
-        }
-        .into()
+        AtomType::glsl_vec_name(self)
     }
 
     fn glsl_mat_name(&self) -> String {
-        match self {
-            Self::Float => "mat",
-            Self::Double => "dmat",
-            _ => panic!("cannot use mat_name on non-float"),
-        }
-        .into()
+        AtomType::glsl_mat_name(self)
     }
 
     fn rust_value_type(&self) -> String {
@@ -128,7 +110,7 @@ impl CodegenExt for VectorType {
     }
 
     fn glsl_vec_name(&self) -> String {
-        format!("{}{}", self.base_type.glsl_vec_name(), self.components)
+        VectorType::glsl_vec_name(self)
     }
 
     fn glsl_mat_name(&self) -> String {
@@ -181,7 +163,7 @@ impl CodegenExt for MatrixType {
     }
 
     fn glsl_mat_name(&self) -> String {
-        format!("{}{}", self.base_type.glsl_mat_name(), self.n)
+        MatrixType::glsl_mat_name(self)
     }
 
     fn rust_value_type(&self) -> String {

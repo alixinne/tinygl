@@ -1,6 +1,7 @@
 [workspace]
 members = [
         "tinygl",
+        "tinygl-codegen",
         "tinygl-compiler",
         "xtask",
 ]
