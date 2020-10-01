@@ -58,10 +58,18 @@ fn get_shader_tokens<T: AsOutputFormat>(
     Ok(quote! { #out })
 }
 
+fn to_cstr(s: &str) -> proc_macro2::TokenStream {
+    let mut s_null_terminated = s.to_string();
+    s_null_terminated.push('\0');
+
+    let s_lit = syn::LitByteStr::new(s_null_terminated.as_bytes(), proc_macro2::Span::call_site());
+    quote! { ::std::mem::transmute(#s_lit as *const u8) }
+}
+
 impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
     fn generate(&self) -> crate::Result<proc_macro2::TokenStream> {
         let shader_tokens = get_shader_tokens(self)?;
-        let is_source = self.prefer_spirv() && self.result().as_source().is_some();
+        let is_source = !self.prefer_spirv() && self.result().as_source().is_some();
 
         // Shader resource structure
         let struct_name = format_ident!("{}", self.shader_struct_name());
@@ -152,8 +160,8 @@ impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
 
                 if is_source {
                     // Source shader: find uniform locations from variable names
-                    let uniform_name = uniform.name.as_str();
-                    quote! { #name: unsafe { gl.get_uniform_location(program, #uniform_name) } }
+                    let uniform_name = to_cstr(uniform.name.as_str());
+                    quote! { #name: unsafe { let loc = gl.get_uniform_location(program, #uniform_name); if loc < 0 { None } else { Some(loc) } } }
                 } else {
                     // Binary shader: assume locations form reflection on SPIR-V
                     let location = uniform.location;
@@ -200,6 +208,7 @@ impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
             let mut call_args = Vec::new();
 
             if let Some(count) = ty.uniform_count_arg() {
+                let count = syn::LitInt::new(&format!("{}", count), proc_macro2::Span::call_site());
                 call_args.push(quote! { #count });
             }
 
@@ -222,8 +231,9 @@ impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
             res
         }));
 
-        let struct_name = self.uniform_struct_name();
         Ok(quote! {
+            #(#parts)*
+
             impl #struct_name {
                 #(#methods)*
             }

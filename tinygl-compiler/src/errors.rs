@@ -14,7 +14,7 @@ pub enum Error {
     InvalidSkipSpirV,
     #[cfg(feature = "rspirv")]
     #[error("error parsing SPIR-V module: {0}")]
-    SpirVParseEreror(#[from] rspirv::binary::ParseState),
+    SpirVParseError(String),
     #[cfg(feature = "spirv_cross")]
     #[error("spirv_cross error: {0:?}")]
     SpirVCrossError(spirv_cross::ErrorCode),
@@ -24,8 +24,6 @@ pub enum Error {
     UnwrappedShader(String),
     #[error("program {0} was not wrapped before building the uniform set, call Compiler::wrap_program first")]
     UnwrappedProgram(String),
-    #[error("failed to wrap shader program: {0}")]
-    WrappingShaderFailed(#[from] Box<Error>),
     #[error("transpiling to {0} is not supported, please enable the transpile feature")]
     TranspilingNotSupported(GlslVersion),
     #[error("error parsing GLSL code: {0}")]

@@ -53,7 +53,8 @@ impl<'s> SpirVModule<'s> {
     /// * `binary`: bytes representing the object
     pub(crate) fn from_words(binary: Vec<u32>) -> Result<SpirVModule<'static>> {
         let mut loader = rspirv::dr::Loader::new();
-        rspirv::binary::parse_words(&binary, &mut loader)?;
+        rspirv::binary::parse_words(&binary, &mut loader)
+            .map_err(|e| crate::Error::SpirVParseError(format!("{}", e)))?;
 
         Ok(SpirVModule {
             binary: Cow::Owned(binary),
@@ -69,7 +70,8 @@ impl<'s> SpirVModule<'s> {
     #[allow(dead_code)]
     pub(crate) fn from_word_slice(binary: &'s [u32]) -> Result<Self> {
         let mut loader = rspirv::dr::Loader::new();
-        rspirv::binary::parse_words(binary, &mut loader)?;
+        rspirv::binary::parse_words(binary, &mut loader)
+            .map_err(|e| crate::Error::SpirVParseError(format!("{}", e)))?;
 
         Ok(Self {
             binary: Cow::Borrowed(binary),

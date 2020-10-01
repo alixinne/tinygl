@@ -1,7 +1,7 @@
 pub mod compiler;
 pub mod types;
 
-pub use tinygl_compiler::Compiler;
+pub use tinygl_compiler::*;
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -10,7 +10,7 @@ use std::path::Path;
 
 use tinygl_compiler::Result;
 
-use compiler::WrappedItem;
+pub use compiler::WrappedItem;
 
 pub fn write<'a>(dest: impl AsRef<Path>, items: &[&'a dyn WrappedItem]) -> Result<()> {
     // Write master shaders.rs file
