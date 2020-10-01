@@ -1,8 +1,7 @@
 #[cfg(all(feature = "spirv", feature = "backend-shaderc"))]
 #[test]
 fn test_codegen() -> tinygl_compiler::Result<()> {
-    use tinygl_codegen::compiler::WrappedItem;
-    use tinygl_compiler::{model::*, reflect, Compiler, ShaderKind};
+    use tinygl_compiler::{codegen::WrappedItem, model::*, reflect, Compiler, ShaderKind};
 
     // Initialize shaderc compiler
     let mut compiler = Compiler::new(true, None)?.with_shaderc();

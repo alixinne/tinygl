@@ -3,7 +3,7 @@ pub use codegen_ext::*;
 
 use quote::quote;
 
-use tinygl_compiler::types::{GenericType, ItemOrArrayType};
+use crate::types::{GenericType, ItemOrArrayType};
 
 pub trait UniformValueExt {
     fn uniform_value(&self, name: &syn::Ident) -> proc_macro2::TokenStream;

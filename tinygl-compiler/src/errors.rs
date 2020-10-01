@@ -1,3 +1,5 @@
+use thiserror::Error;
+
 use super::TargetType;
 
 use crate::GlslVersion;

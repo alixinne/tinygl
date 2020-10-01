@@ -1,6 +1,5 @@
-#[macro_use]
-extern crate thiserror;
-
+#[cfg(feature = "codegen")]
+pub mod codegen;
 mod compiler;
 mod errors;
 pub mod model;

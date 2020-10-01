@@ -1,14 +1,12 @@
-pub mod compiler;
-pub mod types;
-
-pub use tinygl_compiler::*;
+mod compiler;
+mod types;
 
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufWriter;
 use std::path::Path;
 
-use tinygl_compiler::Result;
+use crate::Result;
 
 pub use compiler::WrappedItem;
 

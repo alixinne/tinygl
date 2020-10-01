@@ -1,11 +1,13 @@
 use heck::SnakeCase;
-
 use quote::{format_ident, quote};
 
-use tinygl_compiler::{model::AsOutputFormat, WrappedShader, WrappedShaderDetails};
+use crate::{
+    codegen::types::{CodegenExt, UniformValueExt},
+    model::AsOutputFormat,
+    Error, WrappedShader, WrappedShaderDetails,
+};
 
 use super::WrappedItem;
-use crate::types::{CodegenExt, UniformValueExt};
 
 fn filter_src<T: AsOutputFormat>(this: &WrappedShader<T>) -> String {
     use std::fmt::Write;
@@ -39,7 +41,7 @@ fn get_shader_tokens<T: AsOutputFormat>(
                 .result()
                 .object()
                 .as_spirv()
-                .ok_or(tinygl_compiler::Error::SpirVObjectRequired)?
+                .ok_or(Error::SpirVObjectRequired)?
                 .as_bytes_u8(),
             proc_macro2::Span::call_site(),
         );

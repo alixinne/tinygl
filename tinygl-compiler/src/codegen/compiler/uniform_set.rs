@@ -2,13 +2,11 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use heck::{CamelCase, SnakeCase};
-
 use quote::{format_ident, quote};
 
-use tinygl_compiler::{reflect::FoundUniform, WrappedUniformSet};
+use crate::{codegen::types::CodegenExt, reflect::FoundUniform, WrappedUniformSet};
 
 use super::WrappedItem;
-use crate::types::CodegenExt;
 
 impl WrappedItem for WrappedUniformSet<'_, '_> {
     fn generate(&self) -> crate::Result<proc_macro2::TokenStream> {

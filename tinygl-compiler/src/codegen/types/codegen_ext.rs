@@ -1,6 +1,6 @@
 use quote::{format_ident, quote};
 
-use tinygl_compiler::types::{AtomType, GenericType, ItemOrArrayType, MatrixType, VectorType};
+use crate::types::{AtomType, GenericType, ItemOrArrayType, MatrixType, VectorType};
 
 // TODO: Use a formatter
 // TODO: bvec mapping is broken

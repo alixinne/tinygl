@@ -17,9 +17,18 @@ rspirv = { optional = true, version = "0.7" }
 spirv_cross = { optional = true, version = "0.18", features = ["glsl"] }
 spirv_headers = { optional = true, version = "1.5" }
 
+quote = { optional = true, version = "1.0" }
+syn = { optional = true, version = "1.0" }
+proc-macro2 = { optional = true, version = "1.0" }
+
 glsl = "5"
+
+[[test]]
+name = "uniform_reflect"
+required-features = ["backend-shaderc", "spirv", "codegen"]
 
 [features]
 backend-shaderc = ["shaderc", "spirv"]
 transpile = ["spirv_cross", "spirv"]
 spirv = ["spirv_headers", "rspirv"]
+codegen = ["quote", "syn", "proc-macro2"]

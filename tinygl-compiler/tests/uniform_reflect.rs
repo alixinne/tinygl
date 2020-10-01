@@ -1,4 +1,4 @@
-use tinygl_compiler::{model::GlslObject, reflect, Result, ShaderKind};
+use tinygl_compiler::{model::GlslObject, reflect, Compiler, Result, ShaderKind};
 
 fn find<'p>(
     program: &'p tinygl_compiler::WrappedProgram,
@@ -13,7 +13,7 @@ fn find<'p>(
 #[test]
 #[allow(unused_variables)]
 fn uniform_reflect() -> Result<()> {
-    let mut compiler = tinygl_codegen::Compiler::new(true, None)?.with_shaderc();
+    let mut compiler = Compiler::new(true, None)?.with_shaderc();
 
     let backend = reflect::SpirVBackend::new();
 
@@ -133,7 +133,7 @@ fn uniform_reflect() -> Result<()> {
         .wrap_uniforms(&[&program], "global")
         .expect("failed to wrap uniforms");
 
-    tinygl_codegen::write(
+    tinygl_compiler::codegen::write(
         std::env::temp_dir().join("shaders.rs"),
         &[&vert_shader, &frag_shader, &program, &set],
     )?;

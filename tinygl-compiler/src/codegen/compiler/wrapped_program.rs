@@ -1,11 +1,9 @@
 use heck::SnakeCase;
-
 use quote::{format_ident, quote};
 
-use tinygl_compiler::WrappedProgram;
+use crate::{codegen::types::CodegenExt, WrappedProgram};
 
 use super::WrappedItem;
-use crate::types::CodegenExt;
 
 impl WrappedItem for WrappedProgram<'_> {
     fn generate(&self) -> crate::Result<proc_macro2::TokenStream> {
