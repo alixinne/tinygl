@@ -1,5 +1,7 @@
 # tinygl
 
+[![Build Status](https://travis-ci.com/vtavernier/tinygl.svg?branch=master)](https://travis-ci.com/vtavernier/tinygl)
+
 tinygl is an environment to create OpenGL programs in Rust with:
 
 * Pre-processing of GLSL shader code (#include support, syntax checking, etc.), using [shaderc](https://github.com/google/shaderc-rs/)
