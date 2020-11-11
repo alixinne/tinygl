@@ -3,8 +3,8 @@ use tinygl_compiler::{GlslVersion, Result, ShaderKind};
 
 #[test]
 fn test_glsl_from_string() -> Result<()> {
-    let mut object =
-        GlslObject::from_str(include_str!("../../shaders/quad.vert"), ShaderKind::Vertex)?;
+    let source = include_str!("../../shaders/quad.vert").replace("\r\n", "\n");
+    let mut object = GlslObject::from_str(source.as_str(), ShaderKind::Vertex)?;
 
     // No version without parsing
     assert_eq!(object.version(), None);
