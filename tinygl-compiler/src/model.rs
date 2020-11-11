@@ -121,6 +121,6 @@ pub type GlslObject<'s> = ShaderObject<GlslModule<'s>>;
 #[cfg(feature = "spirv")]
 mod spirv;
 #[cfg(feature = "spirv")]
-pub use spirv::SpirVModule;
+pub use spirv::{GlslWithSpirVModule, SpirVModule};
 #[cfg(feature = "spirv")]
 pub type SpirVObject<'s> = ShaderObject<SpirVModule<'s>>;
