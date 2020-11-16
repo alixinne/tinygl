@@ -166,7 +166,8 @@ impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
                     quote! { #name: unsafe { let loc = gl.get_uniform_location(program, #uniform_name); if loc < 0 { None } else { Some(loc) } } }
                 } else {
                     // Binary shader: assume locations form reflection on SPIR-V
-                    let location = uniform.location;
+                    let location = syn::Lit::Int(syn::LitInt::new(&uniform.location.to_string(),
+                                                                  proc_macro2::Span::call_site()));
                     quote! { #name: Some(#location) }
                 }
             })
