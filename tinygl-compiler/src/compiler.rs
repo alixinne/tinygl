@@ -15,14 +15,25 @@ pub use wrapped_shader::*;
 mod wrapped_program;
 pub use wrapped_program::*;
 
+pub type IncludeCallback = Box<dyn FnMut(&std::path::Path) -> ()>;
+
 #[cfg_attr(not(feature = "backend-shaderc"), allow(dead_code))]
 pub struct Compiler {
     pub(crate) skip_cargo: bool,
     output_type: TargetType,
+    include_callback: Option<std::rc::Rc<std::cell::RefCell<IncludeCallback>>>,
 }
 
 impl Compiler {
     pub fn new(skip_cargo: bool, output_type: Option<TargetType>) -> Result<Self> {
+        Self::with_include_callback(skip_cargo, output_type, None)
+    }
+
+    pub fn with_include_callback(
+        skip_cargo: bool,
+        output_type: Option<TargetType>,
+        include_callback: Option<IncludeCallback>,
+    ) -> Result<Self> {
         // Are we building for WASM?
         let is_wasm = std::env::var("TARGET")
             .map(|v| v.starts_with("wasm32"))
@@ -65,6 +76,8 @@ impl Compiler {
         Ok(Self {
             skip_cargo,
             output_type,
+            include_callback: include_callback
+                .map(|cb| std::rc::Rc::new(std::cell::RefCell::new(cb))),
         })
     }
 

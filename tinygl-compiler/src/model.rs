@@ -60,6 +60,14 @@ impl<T> ShaderObject<T> {
 
         self
     }
+
+    pub fn track(self, cb: &mut super::IncludeCallback) -> Self {
+        if let SourcePath::File(p) = &self.info.source_path {
+            cb(p);
+        }
+
+        self
+    }
 }
 
 #[cfg(feature = "spirv")]

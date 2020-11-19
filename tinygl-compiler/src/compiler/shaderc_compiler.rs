@@ -18,6 +18,7 @@ impl CompilerWithShaderc {
 
     fn get_options(&self) -> shaderc::CompileOptions<'static> {
         let skip_cargo = self.compiler.skip_cargo;
+        let cb = self.compiler.include_callback.as_ref().map(|cb| cb.clone());
 
         // Set callback
         let mut options = shaderc::CompileOptions::new().unwrap();
@@ -38,6 +39,10 @@ impl CompilerWithShaderc {
                     if !skip_cargo {
                         // Notify cargo to rerun if included file changed
                         println!("cargo:rerun-if-changed={}", full_path.display());
+                    }
+
+                    if let Some(cb) = &cb {
+                        cb.borrow_mut()(&full_path);
                     }
 
                     match std::fs::read_to_string(&full_path) {
