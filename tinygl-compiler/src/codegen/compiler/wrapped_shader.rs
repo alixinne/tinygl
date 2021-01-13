@@ -189,6 +189,7 @@ impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
 
             if let Some(binding) = uniform.binding {
                 let meth_ident = format_ident!("get_{}_binding", uniform.name.to_snake_case());
+                let binding = binding as u32;
 
                 res.push(quote! {
                     pub fn #meth_ident(&self) -> #type_name {
