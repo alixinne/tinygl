@@ -275,6 +275,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.glsl_base_type(),
             Self::Array(item, _size) => item.glsl_base_type(),
+            Self::Image { .. } => "image",
         }
     }
 
@@ -282,6 +283,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.glsl_vec_name(),
             Self::Array(item, _size) => item.glsl_vec_name(),
+            Self::Image { .. } => "image".to_owned(),
         }
     }
 
@@ -289,6 +291,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.glsl_mat_name(),
             Self::Array(item, _size) => item.glsl_mat_name(),
+            Self::Image { .. } => "image".to_owned(),
         }
     }
 
@@ -296,6 +299,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.rust_value_type(),
             Self::Array(item, size) => format!("&[{}; {}]", item.glsl_mat_name(), size),
+            Self::Image { .. } => GenericType::Atom(AtomType::UInt).rust_value_type(),
         }
     }
 
@@ -303,6 +307,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.rust_primitive_type(),
             Self::Array(item, _size) => item.rust_primitive_type(),
+            Self::Image { .. } => GenericType::Atom(AtomType::UInt).rust_primitive_type(),
         }
     }
 
@@ -310,6 +315,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.uniform_method_name(),
             Self::Array(item, _size) => item.uniform_method_name(),
+            Self::Image { .. } => GenericType::Atom(AtomType::UInt).uniform_method_name(),
         }
     }
 
@@ -317,6 +323,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.uniform_method_extra_args(),
             Self::Array(item, _size) => item.uniform_method_extra_args(),
+            Self::Image { .. } => GenericType::Atom(AtomType::UInt).uniform_method_extra_args(),
         }
     }
 
@@ -324,6 +331,7 @@ impl CodegenExt for ItemOrArrayType {
         match self {
             Self::Item(item) => item.uniform_count_arg(),
             Self::Array(_, size) => Some(*size as usize),
+            Self::Image { .. } => GenericType::Atom(AtomType::UInt).uniform_count_arg(),
         }
     }
 }

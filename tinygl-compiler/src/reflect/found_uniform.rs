@@ -11,6 +11,15 @@ pub struct FoundUniform {
     pub location_name: String,
 }
 
+impl FoundUniform {
+    pub fn format(&self) -> Option<u32> {
+        match self.ty {
+            Some(ItemOrArrayType::Image { format }) => format,
+            _ => None,
+        }
+    }
+}
+
 impl PartialEq for FoundUniform {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.ty == other.ty

@@ -186,14 +186,25 @@ impl<T: AsOutputFormat> WrappedItem for WrappedShader<T> {
             let mut res = Vec::new();
             let ty = uniform.ty.unwrap();
             let type_name: syn::Type = syn::parse_str(&ty.rust_value_type()).unwrap();
+            let sc = uniform.name.to_snake_case();
 
             if let Some(binding) = uniform.binding {
-                let meth_ident = format_ident!("get_{}_binding", uniform.name.to_snake_case());
+                let meth_ident = format_ident!("get_{}_binding", sc);
                 let binding = binding as u32;
 
                 res.push(quote! {
                     pub fn #meth_ident(&self) -> #type_name {
                         #binding
+                    }
+                });
+            }
+
+            if let Some(format) = uniform.format() {
+                let ident = format_ident!("get_{}_format", sc);
+
+                res.push(quote! {
+                    pub fn #ident(&self) -> u32 {
+                        #format
                     }
                 });
             }

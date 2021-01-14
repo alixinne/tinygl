@@ -111,6 +111,16 @@ impl WrappedItem for WrappedProgram<'_> {
                         }
                     });
                 }
+
+                if let Some(format) = uniform.format() {
+                    let ident = format_ident!("get_{}_format", sc);
+
+                    methods.push(quote! {
+                        pub fn #ident(&self) -> u32 {
+                            #format
+                        }
+                    });
+                }
             }
         }
 

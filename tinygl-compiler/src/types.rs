@@ -142,6 +142,7 @@ impl GenericType {
 pub enum ItemOrArrayType {
     Item(GenericType),
     Array(GenericType, u32),
+    Image { format: Option<u32> },
 }
 
 impl fmt::Display for ItemOrArrayType {
@@ -149,6 +150,8 @@ impl fmt::Display for ItemOrArrayType {
         match self {
             Self::Item(item_type) => fmt::Display::fmt(item_type, f),
             Self::Array(item_type, components) => write!(f, "{}[{}]", item_type, components),
+            Self::Image { format: Some(fmt) } => write!(f, "image({})", fmt),
+            Self::Image { format: None } => write!(f, "image(unknown format)"),
         }
     }
 }
@@ -185,22 +188,6 @@ impl ItemOrArrayType {
                 "unsupported type combination: {:?}[{}]",
                 inner_type, components
             ),
-        }
-    }
-}
-
-pub struct NamedGenericType<'a> {
-    name: &'a str,
-    gt: &'a ItemOrArrayType,
-}
-
-impl<'a> fmt::Display for NamedGenericType<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self.gt {
-            ItemOrArrayType::Item(atom_type) => write!(f, "{} {}", atom_type, self.name),
-            ItemOrArrayType::Array(inner_type, components) => {
-                write!(f, "{} {}[{}]", inner_type, self.name, components)
-            }
         }
     }
 }

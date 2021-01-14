@@ -56,6 +56,14 @@ impl WrappedItem for WrappedUniformSet<'_, '_> {
                 });
             }
 
+            if uniform.format().is_some() {
+                let ident = format_ident!("get_{}_format", sc);
+
+                methods.push(quote! {
+                    fn #ident(&self) -> u32;
+                });
+            }
+
             let ident = format_ident!("set_{}", sc);
             let extra = ty.uniform_method_extra_args_with_ty().into_iter();
 
@@ -94,6 +102,16 @@ impl WrappedItem for WrappedUniformSet<'_, '_> {
 
                     methods.push(quote! {
                         fn #ident(&self) -> #type_name {
+                            #struct_name::#ident(self)
+                        }
+                    });
+                }
+
+                if uniform.format().is_some() {
+                    let ident = format_ident!("get_{}_format", sc);
+
+                    methods.push(quote! {
+                        fn #ident(&self) -> u32 {
                             #struct_name::#ident(self)
                         }
                     });

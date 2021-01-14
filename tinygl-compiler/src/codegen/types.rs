@@ -3,7 +3,7 @@ pub use codegen_ext::*;
 
 use quote::quote;
 
-use crate::types::{GenericType, ItemOrArrayType};
+use crate::types::{AtomType, GenericType, ItemOrArrayType};
 
 pub trait UniformValueExt {
     fn uniform_value(&self, name: &syn::Ident) -> proc_macro2::TokenStream;
@@ -24,6 +24,7 @@ impl UniformValueExt for ItemOrArrayType {
         match self {
             Self::Item(inner) => inner.uniform_value(name),
             Self::Array(_, _) => quote! { #name.as_ref().as_ptr() },
+            Self::Image { .. } => GenericType::Atom(AtomType::UInt).uniform_value(name),
         }
     }
 }
