@@ -1,6 +1,6 @@
 # tinygl
 
-[![Build Status](https://travis-ci.com/vtavernier/tinygl.svg?branch=master)](https://travis-ci.com/vtavernier/tinygl)
+[![Build](https://github.com/vtavernier/tinygl/workflows/Build/badge.svg?branch=master)](https://github.com/vtavernier/tinygl/actions)
 
 tinygl is an environment to create OpenGL programs in Rust with:
 
