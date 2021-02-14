@@ -69,6 +69,16 @@ extern "system" fn tinygl_debug_message_callback<F>(
     }
 }
 
+#[cfg(feature = "log-backtrace")]
+fn fmt_backtrace() -> String {
+    format!(", stack backtrace:\n{:?}", backtrace::Backtrace::new())
+}
+
+#[cfg(not(feature = "log-backtrace"))]
+fn fmt_backtrace() -> String {
+    String::new()
+}
+
 impl Context {
     pub unsafe fn from_loader_function<F>(loader_function: F) -> Self
     where
@@ -120,7 +130,7 @@ impl Context {
                         id,
                         message.to_string_lossy(),
                         if level == log::Level::Warn || level == log::Level::Error {
-                            format!(", stack backtrace:\n{:?}", backtrace::Backtrace::new())
+                            fmt_backtrace()
                         } else {
                             "".to_owned()
                         }
