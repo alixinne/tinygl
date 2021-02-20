@@ -21,7 +21,6 @@ quote = { optional = true, version = "1.0" }
 syn = { optional = true, version = "1.0" }
 proc-macro2 = { optional = true, version = "1.0" }
 
-funty = "=1.1.0" # see https://github.com/bitvecto-rs/bitvec/issues/105
 glsl = "6"
 
 [[test]]
