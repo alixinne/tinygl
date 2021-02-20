@@ -16,6 +16,17 @@ impl Buffer {
     pub unsafe fn bind_base(&self, gl: &crate::Context, target: u32, index: u32) {
         gl.bind_buffer_base(target, index, Some(self));
     }
+
+    pub unsafe fn bind_range(
+        &self,
+        gl: &crate::Context,
+        target: u32,
+        index: u32,
+        offset: isize,
+        size: isize,
+    ) {
+        gl.bind_buffer_range(target, index, Some(self), offset, size);
+    }
 }
 
 impl_ndrop!(Buffer, delete_buffers, delete_buffer);

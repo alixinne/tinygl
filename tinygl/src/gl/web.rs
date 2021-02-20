@@ -679,6 +679,23 @@ impl Context {
             .bind_buffer_base(target, index, buffer.map(|b| b.name()));
     }
 
+    pub unsafe fn bind_buffer_range(
+        &self,
+        target: u32,
+        index: u32,
+        buffer: Option<&wrappers::Buffer>,
+        offset: isize,
+        size: isize,
+    ) {
+        self.gl.bind_buffer_range_with_i32_and_i32(
+            target,
+            index,
+            buffer.map(|t| t.name()),
+            offset as _,
+            size as _,
+        );
+    }
+
     pub unsafe fn bind_framebuffer(
         &self,
         target: u32,
