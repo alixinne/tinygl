@@ -28,6 +28,9 @@ pub use query::*;
 mod texture;
 pub use texture::*;
 
+mod uniform_block;
+pub use uniform_block::*;
+
 mod uniform_location;
 pub use uniform_location::*;
 

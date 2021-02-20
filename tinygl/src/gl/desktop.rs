@@ -228,6 +228,16 @@ impl Context {
             .bind_buffer(target, buffer.map(|t| t.name()).unwrap_or(0));
     }
 
+    pub unsafe fn bind_buffer_base(
+        &self,
+        target: u32,
+        index: u32,
+        buffer: Option<&wrappers::Buffer>,
+    ) {
+        self.gl
+            .bind_buffer_base(target, index, buffer.map(|t| t.name()).unwrap_or(0));
+    }
+
     pub unsafe fn bind_framebuffer(
         &self,
         target: u32,
