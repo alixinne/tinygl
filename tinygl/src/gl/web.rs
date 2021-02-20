@@ -721,6 +721,14 @@ impl Context {
     pub unsafe fn bind_vertex_array(&self, vertex_array: Option<&wrappers::VertexArray>) {
         self.gl.bind_vertex_array(vertex_array.map(|t| t.name()));
     }
+
+    pub unsafe fn buffer_data_u8_slice(&self, target: u32, data: &[u8], usage: u32) {
+        self.gl.buffer_data_with_u8_array(target, data, usage);
+    }
+
+    pub unsafe fn buffer_data_size(&self, target: u32, size: i32, usage: u32) {
+        self.gl.buffer_data_with_i32(target, size, usage);
+    }
 }
 
 impl std::ops::Deref for Context {
