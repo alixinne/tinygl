@@ -729,6 +729,11 @@ impl Context {
     pub unsafe fn buffer_data_size(&self, target: u32, size: i32, usage: u32) {
         self.gl.buffer_data_with_i32(target, size, usage);
     }
+
+    pub unsafe fn buffer_sub_data_u8_slice(&self, target: u32, offset: isize, data: &[u8]) {
+        self.gl
+            .buffer_sub_data_with_i32_and_u8_array(target, offset as _, data);
+    }
 }
 
 impl std::ops::Deref for Context {

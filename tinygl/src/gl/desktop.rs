@@ -513,6 +513,11 @@ impl Context {
             .buffer_data(target, size as isize, std::ptr::null(), usage);
     }
 
+    pub unsafe fn buffer_sub_data_u8_slice(&self, target: u32, offset: isize, data: &[u8]) {
+        self.gl
+            .buffer_sub_data(target, offset, data.len() as _, data.as_ptr() as _);
+    }
+
     pub unsafe fn get_tex_image_u8_slice(
         &self,
         target: u32,
