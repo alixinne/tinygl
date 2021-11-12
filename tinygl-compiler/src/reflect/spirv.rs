@@ -14,12 +14,12 @@ impl SpirVBackend {
 
     pub fn find_uniforms(&self, module: &rspirv::dr::Module) -> crate::Result<Vec<FoundUniform>> {
         // Find names and locations
-        let mut names: std::collections::HashMap<spirv_headers::Word, FoundUniform> =
+        let mut names: std::collections::HashMap<rspirv::spirv::Word, FoundUniform> =
             std::collections::HashMap::new();
 
         // Enumerate known names from debug info
-        for debug in &module.debugs {
-            if let spirv_headers::Op::Name = debug.class.opcode {
+        for debug in &module.debug_names {
+            if let rspirv::spirv::Op::Name = debug.class.opcode {
                 if let rr::Operand::IdRef(id) = debug.operands[0] {
                     if let rr::Operand::LiteralString(name) = &debug.operands[1] {
                         names.insert(
@@ -38,19 +38,19 @@ impl SpirVBackend {
         let mut constants = std::collections::HashMap::new();
 
         // Find types
-        let mut types: std::collections::HashMap<spirv_headers::Word, ItemOrArrayType> =
+        let mut types: std::collections::HashMap<rspirv::spirv::Word, ItemOrArrayType> =
             std::collections::HashMap::new();
 
         for type_global_value in &module.types_global_values {
             let id = type_global_value.result_id.unwrap_or(0);
 
             match type_global_value.class.opcode {
-                spirv_headers::Op::Constant => {
+                rspirv::spirv::Op::Constant => {
                     if let rr::Operand::LiteralInt32(value) = type_global_value.operands[0] {
                         constants.insert(id, value);
                     }
                 }
-                spirv_headers::Op::TypeInt => {
+                rspirv::spirv::Op::TypeInt => {
                     if let rr::Operand::LiteralInt32(32) = type_global_value.operands[0] {
                         if let rr::Operand::LiteralInt32(0) = type_global_value.operands[1] {
                             types.insert(id, ItemOrArrayType::atom(AtomType::UInt));
@@ -61,7 +61,7 @@ impl SpirVBackend {
                         panic!("unsupported integer width");
                     }
                 }
-                spirv_headers::Op::TypeFloat => {
+                rspirv::spirv::Op::TypeFloat => {
                     if let rr::Operand::LiteralInt32(32) = type_global_value.operands[0] {
                         types.insert(id, ItemOrArrayType::atom(AtomType::Float));
                     } else if let rr::Operand::LiteralInt32(64) = type_global_value.operands[0] {
@@ -70,11 +70,11 @@ impl SpirVBackend {
                         panic!("unsupported float width");
                     }
                 }
-                spirv_headers::Op::TypeBool => {
+                rspirv::spirv::Op::TypeBool => {
                     // TODO: Check TypeBool syntax
                     types.insert(id, ItemOrArrayType::atom(AtomType::Bool));
                 }
-                spirv_headers::Op::TypeVector => {
+                rspirv::spirv::Op::TypeVector => {
                     if let rr::Operand::IdRef(type_id) = type_global_value.operands[0] {
                         if let rr::Operand::LiteralInt32(components) = type_global_value.operands[1]
                         {
@@ -82,7 +82,7 @@ impl SpirVBackend {
                         }
                     }
                 }
-                spirv_headers::Op::TypeMatrix => {
+                rspirv::spirv::Op::TypeMatrix => {
                     if let rr::Operand::IdRef(type_id) = type_global_value.operands[0] {
                         if let rr::Operand::LiteralInt32(n) = type_global_value.operands[1] {
                             if let ItemOrArrayType::Item(GenericType::Vector(VectorType {
@@ -107,7 +107,7 @@ impl SpirVBackend {
                         }
                     }
                 }
-                spirv_headers::Op::TypeArray => {
+                rspirv::spirv::Op::TypeArray => {
                     if let rr::Operand::IdRef(type_id) = type_global_value.operands[0] {
                         if let rr::Operand::IdRef(constant_id) = type_global_value.operands[1] {
                             if types.get(&type_id).is_some() {
@@ -131,55 +131,55 @@ impl SpirVBackend {
                         panic!("failed to get type_id");
                     }
                 }
-                spirv_headers::Op::TypeSampledImage | spirv_headers::Op::TypeImage => {
+                rspirv::spirv::Op::TypeSampledImage | rspirv::spirv::Op::TypeImage => {
                     // Store texture format for image bindings
                     let format = if let Some(rr::Operand::ImageFormat(format)) =
                         type_global_value.operands.last()
                     {
                         match format {
-                            spirv_headers::ImageFormat::Rgba32f => Some(crate::gl::RGBA32F),
-                            spirv_headers::ImageFormat::Rgba16f => Some(crate::gl::RGBA16F),
-                            spirv_headers::ImageFormat::Rg32f => Some(crate::gl::RG32F),
-                            spirv_headers::ImageFormat::Rg16f => Some(crate::gl::RG16F),
-                            spirv_headers::ImageFormat::R11fG11fB10f => {
+                            rspirv::spirv::ImageFormat::Rgba32f => Some(crate::gl::RGBA32F),
+                            rspirv::spirv::ImageFormat::Rgba16f => Some(crate::gl::RGBA16F),
+                            rspirv::spirv::ImageFormat::Rg32f => Some(crate::gl::RG32F),
+                            rspirv::spirv::ImageFormat::Rg16f => Some(crate::gl::RG16F),
+                            rspirv::spirv::ImageFormat::R11fG11fB10f => {
                                 Some(crate::gl::R11F_G11F_B10F)
                             }
-                            spirv_headers::ImageFormat::R32f => Some(crate::gl::R32F),
-                            spirv_headers::ImageFormat::R16f => Some(crate::gl::R16F),
-                            spirv_headers::ImageFormat::Rgba32ui => Some(crate::gl::RGBA32UI),
-                            spirv_headers::ImageFormat::Rgba16ui => Some(crate::gl::RGBA16UI),
-                            spirv_headers::ImageFormat::Rgb10a2ui => Some(crate::gl::RGB10_A2UI),
-                            spirv_headers::ImageFormat::Rgba8ui => Some(crate::gl::RGBA8UI),
-                            spirv_headers::ImageFormat::Rg32ui => Some(crate::gl::RG32UI),
-                            spirv_headers::ImageFormat::Rg16ui => Some(crate::gl::RG16UI),
-                            spirv_headers::ImageFormat::Rg8ui => Some(crate::gl::RG8UI),
-                            spirv_headers::ImageFormat::R32ui => Some(crate::gl::R32UI),
-                            spirv_headers::ImageFormat::R16ui => Some(crate::gl::R16UI),
-                            spirv_headers::ImageFormat::R8ui => Some(crate::gl::R8UI),
-                            spirv_headers::ImageFormat::Rgba32i => Some(crate::gl::RGBA32I),
-                            spirv_headers::ImageFormat::Rgba16i => Some(crate::gl::RGBA16I),
-                            spirv_headers::ImageFormat::Rgba8i => Some(crate::gl::RGBA8I),
-                            spirv_headers::ImageFormat::Rg32i => Some(crate::gl::RG32I),
-                            spirv_headers::ImageFormat::Rg16i => Some(crate::gl::RG16I),
-                            spirv_headers::ImageFormat::Rg8i => Some(crate::gl::RG8I),
-                            spirv_headers::ImageFormat::R32i => Some(crate::gl::R32I),
-                            spirv_headers::ImageFormat::R16i => Some(crate::gl::R16I),
-                            spirv_headers::ImageFormat::R8i => Some(crate::gl::R8I),
-                            spirv_headers::ImageFormat::Rgba16 => Some(crate::gl::RGBA16),
-                            spirv_headers::ImageFormat::Rgb10A2 => Some(crate::gl::RGB10_A2),
-                            spirv_headers::ImageFormat::Rgba8 => Some(crate::gl::RGBA8),
-                            spirv_headers::ImageFormat::Rg16 => Some(crate::gl::RG16),
-                            spirv_headers::ImageFormat::Rg8 => Some(crate::gl::RG8),
-                            spirv_headers::ImageFormat::R16 => Some(crate::gl::R16),
-                            spirv_headers::ImageFormat::R8 => Some(crate::gl::R8),
-                            spirv_headers::ImageFormat::Rgba16Snorm => {
+                            rspirv::spirv::ImageFormat::R32f => Some(crate::gl::R32F),
+                            rspirv::spirv::ImageFormat::R16f => Some(crate::gl::R16F),
+                            rspirv::spirv::ImageFormat::Rgba32ui => Some(crate::gl::RGBA32UI),
+                            rspirv::spirv::ImageFormat::Rgba16ui => Some(crate::gl::RGBA16UI),
+                            rspirv::spirv::ImageFormat::Rgb10a2ui => Some(crate::gl::RGB10_A2UI),
+                            rspirv::spirv::ImageFormat::Rgba8ui => Some(crate::gl::RGBA8UI),
+                            rspirv::spirv::ImageFormat::Rg32ui => Some(crate::gl::RG32UI),
+                            rspirv::spirv::ImageFormat::Rg16ui => Some(crate::gl::RG16UI),
+                            rspirv::spirv::ImageFormat::Rg8ui => Some(crate::gl::RG8UI),
+                            rspirv::spirv::ImageFormat::R32ui => Some(crate::gl::R32UI),
+                            rspirv::spirv::ImageFormat::R16ui => Some(crate::gl::R16UI),
+                            rspirv::spirv::ImageFormat::R8ui => Some(crate::gl::R8UI),
+                            rspirv::spirv::ImageFormat::Rgba32i => Some(crate::gl::RGBA32I),
+                            rspirv::spirv::ImageFormat::Rgba16i => Some(crate::gl::RGBA16I),
+                            rspirv::spirv::ImageFormat::Rgba8i => Some(crate::gl::RGBA8I),
+                            rspirv::spirv::ImageFormat::Rg32i => Some(crate::gl::RG32I),
+                            rspirv::spirv::ImageFormat::Rg16i => Some(crate::gl::RG16I),
+                            rspirv::spirv::ImageFormat::Rg8i => Some(crate::gl::RG8I),
+                            rspirv::spirv::ImageFormat::R32i => Some(crate::gl::R32I),
+                            rspirv::spirv::ImageFormat::R16i => Some(crate::gl::R16I),
+                            rspirv::spirv::ImageFormat::R8i => Some(crate::gl::R8I),
+                            rspirv::spirv::ImageFormat::Rgba16 => Some(crate::gl::RGBA16),
+                            rspirv::spirv::ImageFormat::Rgb10A2 => Some(crate::gl::RGB10_A2),
+                            rspirv::spirv::ImageFormat::Rgba8 => Some(crate::gl::RGBA8),
+                            rspirv::spirv::ImageFormat::Rg16 => Some(crate::gl::RG16),
+                            rspirv::spirv::ImageFormat::Rg8 => Some(crate::gl::RG8),
+                            rspirv::spirv::ImageFormat::R16 => Some(crate::gl::R16),
+                            rspirv::spirv::ImageFormat::R8 => Some(crate::gl::R8),
+                            rspirv::spirv::ImageFormat::Rgba16Snorm => {
                                 Some(crate::gl::RGBA16_SNORM)
                             }
-                            spirv_headers::ImageFormat::Rgba8Snorm => Some(crate::gl::RGBA8_SNORM),
-                            spirv_headers::ImageFormat::Rg16Snorm => Some(crate::gl::RG16_SNORM),
-                            spirv_headers::ImageFormat::Rg8Snorm => Some(crate::gl::RG8_SNORM),
-                            spirv_headers::ImageFormat::R16Snorm => Some(crate::gl::R16_SNORM),
-                            spirv_headers::ImageFormat::R8Snorm => Some(crate::gl::R8_SNORM),
+                            rspirv::spirv::ImageFormat::Rgba8Snorm => Some(crate::gl::RGBA8_SNORM),
+                            rspirv::spirv::ImageFormat::Rg16Snorm => Some(crate::gl::RG16_SNORM),
+                            rspirv::spirv::ImageFormat::Rg8Snorm => Some(crate::gl::RG8_SNORM),
+                            rspirv::spirv::ImageFormat::R16Snorm => Some(crate::gl::R16_SNORM),
+                            rspirv::spirv::ImageFormat::R8Snorm => Some(crate::gl::R8_SNORM),
                             _ => None,
                         }
                     } else {
@@ -194,8 +194,8 @@ impl SpirVBackend {
 
         // Enumerate locations
         for annotation in &module.annotations {
-            if let spirv_headers::Op::Decorate = annotation.class.opcode {
-                if let rr::Operand::Decoration(spirv_headers::Decoration::Location) =
+            if let rspirv::spirv::Op::Decorate = annotation.class.opcode {
+                if let rr::Operand::Decoration(rspirv::spirv::Decoration::Location) =
                     annotation.operands[1]
                 {
                     if let rr::Operand::IdRef(id) = annotation.operands[0] {
@@ -203,7 +203,7 @@ impl SpirVBackend {
                             names.get_mut(&id).unwrap().location = location;
                         }
                     }
-                } else if let rr::Operand::Decoration(spirv_headers::Decoration::Binding) =
+                } else if let rr::Operand::Decoration(rspirv::spirv::Decoration::Binding) =
                     annotation.operands[1]
                 {
                     if let rr::Operand::IdRef(id) = annotation.operands[0] {
@@ -220,15 +220,15 @@ impl SpirVBackend {
 
         for type_global_value in &module.types_global_values {
             match type_global_value.class.opcode {
-                spirv_headers::Op::TypePointer => {
+                rspirv::spirv::Op::TypePointer => {
                     if let rr::Operand::IdRef(type_id) = type_global_value.operands[1] {
                         type_pointers.insert(type_global_value.result_id.unwrap(), type_id);
                     } else {
                         panic!("failed to get type_id");
                     }
                 }
-                spirv_headers::Op::Variable => {
-                    if let rr::Operand::StorageClass(spirv_headers::StorageClass::UniformConstant) =
+                rspirv::spirv::Op::Variable => {
+                    if let rr::Operand::StorageClass(rspirv::spirv::StorageClass::UniformConstant) =
                         type_global_value.operands[0]
                     {
                         let result_id = type_global_value.result_id.unwrap();

@@ -105,7 +105,8 @@ fn main() -> Result<(), String> {
     let fullscreen = Some(Fullscreen::Borderless(
         el.available_monitors()
             .nth(0)
-            .expect("no avilable monitors"),
+            .expect("no avilable monitors")
+            .into(),
     ));
 
     let start = Instant::now();

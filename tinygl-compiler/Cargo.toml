@@ -7,15 +7,14 @@ license = "MIT"
 
 [dependencies]
 heck = "0.3"
-sha2 = "0.8"
-base64 = "0.12"
+sha2 = "0.9"
+base64 = "0.13"
 thiserror = "1.0"
 
-shaderc = { optional = true, version = "0.6" }
+shaderc = { optional = true, version = "0.7" }
 
-rspirv = { optional = true, version = "0.7" }
-spirv_cross = { optional = true, version = "0.18", features = ["glsl"] }
-spirv_headers = { optional = true, version = "1.5" }
+rspirv = { optional = true, version = "0.11" }
+spirv_cross = { optional = true, version = "0.23", features = ["glsl"] }
 
 quote = { optional = true, version = "1.0" }
 syn = { optional = true, version = "1.0" }
@@ -30,5 +29,5 @@ required-features = ["backend-shaderc", "spirv", "codegen"]
 [features]
 backend-shaderc = ["shaderc", "spirv"]
 transpile = ["spirv_cross", "spirv"]
-spirv = ["spirv_headers", "rspirv"]
+spirv = ["rspirv"]
 codegen = ["quote", "syn", "proc-macro2"]
